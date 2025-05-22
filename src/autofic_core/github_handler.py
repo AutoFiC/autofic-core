@@ -19,8 +19,6 @@ def get_repo_files(repo_url, file_extensions=(".js", ".mjs", ".jsx", ".ts"), sil
     token = os.getenv("GITHUB_TOKEN")
     if not token:
         raise ValueError("GITHUB_TOKEN이 .env에 없습니다.")
-    
-    print(f"[DEBUG] GITHUB_TOKEN: {repr(token)}")
 
     print("GitHub API 인증 시도 중")
 
@@ -45,9 +43,10 @@ def get_repo_files(repo_url, file_extensions=(".js", ".mjs", ".jsx", ".ts"), sil
     js_files = []
     contents = repo.get_contents("")
 
+    print("탐색 중입니다.")
+
     while contents:
         file_content = contents.pop(0)
-        print("탐색 중입니다.")
         if not silent:
             print(f"탐색 중: {file_content.path} ({file_content.type})")
         if file_content.type == "dir":
@@ -59,5 +58,7 @@ def get_repo_files(repo_url, file_extensions=(".js", ".mjs", ".jsx", ".ts"), sil
             })
             if not silent:
                 print(f"발견: {file_content.path}")
+                
+    print(f"JS 파일 {len(js_files)}개를 찾았습니다:")
 
     return js_files

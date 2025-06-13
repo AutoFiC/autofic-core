@@ -1,10 +1,10 @@
 import click
 import json
 import time
-from autofic_core.github_handler import get_repo_files
-from autofic_core.downloader import download_file
-from autofic_core.sast import run_semgrep
-from autofic_core.semgrep_preprocessor import preprocess_semgrep_results, save_json_file 
+from autofic_core.download.github_handler import GitHubRepoHandler
+from autofic_core.download.downloader import FileDownloader
+from autofic_core.sast.semgrep import SemgrepRunner
+from autofic_core.sast.semgrep_preprocessor import SemgrepPreprocessor 
 from autofic_core.utils.progress_utils import create_progress
 
 @click.command()
@@ -15,6 +15,9 @@ from autofic_core.utils.progress_utils import create_progress
 @click.option('--semgrep-result', default="semgrep_result.json", help="Semgrep 원본 결과 경로")
 
 def main(repo, save_dir, sast, rule, semgrep_result):
+    run_cli(repo, save_dir, sast, rule, semgrep_result)
+
+def run_cli(repo, save_dir, sast, rule, semgrep_result):
             
     """ GitHub 저장소 분석 """
 
@@ -24,7 +27,8 @@ def main(repo, save_dir, sast, rule, semgrep_result):
         for _ in range(100):
             progress.update(task, advance=1)
             time.sleep(0.05)
-        files = get_repo_files(repo)
+        repo_handler = GitHubRepoHandler(repo_url=repo)
+        files = repo_handler.get_repo_files()
         progress.update(task, completed=100)
     if not files:
         click.secho("\n[ WARNING ] JS 파일을 찾지 못했습니다. 저장소 또는 GitHub 연결을 확인하세요.\n", fg="yellow")
@@ -35,22 +39,23 @@ def main(repo, save_dir, sast, rule, semgrep_result):
 
     click.echo(f"다운로드 시작\n")
     results = []
+    downloader = FileDownloader(save_dir=save_dir)
     with create_progress() as progress:
         task = progress.add_task("[cyan]파일 다운로드 중...", total=len(files))
         for file in files:
-            result = download_file(file, save_dir)
+            result = downloader.download_file(file)
             results.append(result)
             progress.update(task, advance=1)
             time.sleep(0.05)
         progress.update(task, completed=100)
     click.echo()
     for r in results:
-        if r["status"] == "success":
-            click.secho(f"[ SUCCESS ] {r['path']} 다운로드 완료", fg="green")
-        elif r["status"] == "skipped":
-            click.secho(f"[ WARNING ] {r['path']} 이미 존재함 - 건너뜀", fg="yellow")
+        if r.status == "success":
+            click.secho(f"[ SUCCESS ] {r.path} 다운로드 완료", fg="green")
+        elif r.status == "skipped":
+            click.secho(f"[ WARNING ] {r.path} 이미 존재함 - 건너뜀", fg="yellow")
         else:
-            click.secho(f"[ ERROR ] {r['path']} 다운로드 실패: {r['error']}", fg="red")
+            click.secho(f"[ ERROR ] {r.path} 다운로드 실패: {r.error}", fg="red")
 
     """ Semgrep 분석  """
 
@@ -61,25 +66,26 @@ def main(repo, save_dir, sast, rule, semgrep_result):
             for _ in range(100):
                 progress.update(task, advance=1)
                 time.sleep(0.05)
-            semgrep_output, semgrep_error, semgrep_status = run_semgrep(save_dir, rule)
+            semgrep_runner = SemgrepRunner(repo_path=save_dir, rule=rule)
+            semgrep_result_obj = semgrep_runner.run_semgrep()
             progress.update(task, completed=100)
     
-        if semgrep_status != 0:
-            click.echo(f"\n[ ERROR ] Semgrep 실행 실패 (리턴 코드: {semgrep_status})\n")
+        if semgrep_result_obj.returncode != 0:
+            click.echo(f"\n[ ERROR ] Semgrep 실행 실패 (리턴 코드: {semgrep_result_obj.returncode})\n")
             try:
-                err_json = json.loads(semgrep_output or semgrep_error)
+                err_json = json.loads(semgrep_result_obj.stdout or semgrep_result_obj.stderr)
                 click.echo("[ Semgrep 에러 내용 ]")
                 for err in err_json.get("errors", []):
                     click.echo(f"- {err.get('message')} (코드: {err.get('code')})")
             except json.JSONDecodeError:
                 click.echo("에러 메시지 JSON 파싱 실패 : ")
-                click.echo(semgrep_error or semgrep_output)
+                click.echo(semgrep_result_obj.stderr or semgrep_result_obj.stdout)
             return
             
-        save_json_file(json.loads(semgrep_output), semgrep_result)
+        SemgrepPreprocessor.save_json_file(json.loads(semgrep_result_obj.stdout), semgrep_result)
         click.secho(f"\n[ SUCCESS ] Semgrep 분석 완료! 결과가 '{semgrep_result}'에 저장되었습니다.\n", fg="green")
     
-        processed = preprocess_semgrep_results(semgrep_result)
+        processed = SemgrepPreprocessor.preprocess(semgrep_result)
 
         ''' processed 활용해서 이후 개발 '''
 

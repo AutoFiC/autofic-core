@@ -11,8 +11,7 @@ from autofic_core.sast.semgrep_preprocessor import SemgrepPreprocessor
 from autofic_core.sast.semgrep_merger import merge_snippets_by_location
 from autofic_core.llm.prompt_generator import PromptGenerator
 from autofic_core.llm.llm_runner import LLMRunner, save_md_response
-from autofic_core.llm.response_parser import LLMResponseParser
-from autofic_core.patch.diff_generator import DiffGenerator
+from autofic_core.llm.response_parser import ResponseParser
 
 load_dotenv()        
 
@@ -105,6 +104,19 @@ def run_cli(repo, save_dir, sast, rule):
             progress.update(task, completed=100)
 
         click.secho(f"\n[ SUCCESS ] GPT 응답이 .md 파일로 저장 완료되었습니다!\n", fg="green")
-        
+
+    diff_dir = save_dir / "diff"
+    diff_dir.mkdir(parents=True, exist_ok=True)
+
+    llm_output_dir = save_dir / "llm"
+
+    # ResponseParser 인스턴스 생성 후 diff 파일 생성 함수 호출
+    parser = ResponseParser(md_dir=llm_output_dir, diff_dir=diff_dir)
+    success = parser.extract_and_save_all()
+
+    if success:
+        click.secho(f"\n[Success] diff 파일들이 '{diff_dir}'에 생성되었습니다.\n", fg="green")
+    else:
+        click.secho(f"\n[Error] diff 파일 생성 중 문제가 발생했습니다.\n", fg="red")    
 if __name__ == '__main__':
     main()

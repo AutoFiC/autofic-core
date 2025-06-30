@@ -14,7 +14,7 @@ from autofic_core.llm.llm_runner import LLMRunner, save_md_response
 from autofic_core.llm.response_parser import ResponseParser
 from autofic_core.patch.diff_generator import DiffGenerator
 from autofic_core.patch.diff_merger import DiffMerger
-from autofic_core.patch.pr_auto import BranchPRAutomation
+from autofic_core.pr_auto.pr_main import BranchPRAutomation
 
 load_dotenv()
 

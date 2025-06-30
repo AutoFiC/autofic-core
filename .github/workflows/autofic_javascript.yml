@@ -1,0 +1,42 @@
+name: Autofic SAST for Selected JavaScript Repos
+
+on:
+  schedule:
+    - cron: '00 21 * * 0'  # 매주 월요일 오전 6시
+  workflow_dispatch:
+
+jobs:
+  find-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Set Git config
+        run: |
+          git config --global user.email "github-actions@users.noreply.github.com"
+          git config --global user.name "github-actions"
+
+      - name: Run ci_automation.py automatically
+        env:
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPEN_API_KEY }}
+          USER_NAME: ${{ secrets.USER_NAME }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          python src/autofic_core/ci_cd_auto/ci_automation.py

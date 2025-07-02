@@ -19,6 +19,8 @@ class GitHubRepoHandler():
         self.github = Github(self.token)
         self._owner, self._name = self._parse_repo_url(repo_url)
         self._current_user = self.github.get_user().login
+
+        self.needs_fork = self._owner != self._current_user     # 포크 필요 여부 판단
     
     @staticmethod
     # URL에서 owner와 name 추출
@@ -29,16 +31,10 @@ class GitHubRepoHandler():
             return owner, repo.removesuffix(".git")
         except Exception:
             raise RepoURLFormatError(url)
-
-    # 현재 로그인 사용자와 저장소 소유자가 다른지 확인
-    @property
-    def needs_fork(self) -> bool:
-        return self._current_user.lower() != self._owner.lower()
     
     # 저장소 객체 반환 (Fork 여부에 따라 소유자 변경)
-    def fetch_repo(self, use_forked: bool = False) -> Repository:
-        owner = self._current_user if use_forked else self._owner
-        repo_name = f"{owner}/{self._name}"
+    def fetch_repo(self) -> Repository:
+        repo_name = f"{self._current_user}/{self._name}"
         try:
             return self.github.get_repo(repo_name)
         except Exception as e:
@@ -69,7 +65,6 @@ class GitHubRepoHandler():
             else:
                 raise ValueError(f"지정한 경로가 디렉토리가 아닙니다 : {repo_path}")
 
-        owner = self._current_user if use_forked else self._owner
-        clone_url = f"https://github.com/{owner}/{self._name}.git"
+        clone_url = f"https://github.com/{self._current_user}/{self._name}.git"
         subprocess.run(['git', 'clone', clone_url, repo_path], check=True)
         return repo_path

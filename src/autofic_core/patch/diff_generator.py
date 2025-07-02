@@ -1,82 +1,58 @@
-import difflib
-from typing import Optional, List
-from pydantic import BaseModel
 from pathlib import Path
-from autofic_core.errors import DiffGenerationError
-from autofic_core.llm.response_parser import ParsedCodeBlock
-
-class DiffResult(BaseModel):
-    filename: str
-    diff: str
-    success: bool
-    error: Optional[str] = None
-    saved_path: Optional[str] = None
+import re
 
 class DiffGenerator:
-    def __init__(self, downloaded_dir: str = "artifacts/downloaded_repo", diff_dir: str = "artifacts/diffs"):
-        base_dir = Path(__file__).resolve().parents[2]  
-        self.downloaded_dir = base_dir / downloaded_dir
-        self.diff_dir = base_dir / diff_dir
-        self.diff_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, repo_dir: Path, diff_dir: Path):
+        self.repo_dir = repo_dir    # repo_dir : 원본 코드 저장소 최상위 경로
+        self.diff_dir = diff_dir    # diff_dir : diff 파일들이 저장된 경로
 
-    def generate_diff(self, relative_path: str, modified_code: str) -> DiffResult:
-        original_path = self.downloaded_dir / relative_path
-        try:
-            if not original_path.exists():
-                raise FileNotFoundError(f"경로 파일 없음: {original_path}")
 
-            original_lines = original_path.read_text(encoding="utf-8").splitlines()
-            modified_lines = modified_code.strip().splitlines()
+    # flatten 된 파일명을 repo 내 상대경로 변환
+    # 예: 'core_appHandler.js' -> Path('core/appHandler.js')
+    def flatten_to_relative_path(self, flat_name: str) -> Path:
+        parts = flat_name.split("_")
+        return Path(*parts[:-1]) / parts[-1] 
 
-            diff_lines = list(difflib.unified_diff(
-                original_lines,
-                modified_lines,
-                fromfile=f"a/{relative_path}",
-                tofile=f"b/{relative_path}",
-                lineterm=""
-            ))
 
-            diff_text = "\n".join(diff_lines)
-            return DiffResult(filename=relative_path, diff=diff_text, success=True)
+    # '003_core_appHandler.js' -> start_line: 3 (int) / flatten_file_name: 'core_appHandler.js' (str) 추출
+    def parse_diff_filename(self, diff_filename: str) -> tuple[int, str]:
+        m = re.match(r"(\d{3})_(.+)$", diff_filename)
+        if not m:
+            raise ValueError(f"[ ERROR ] 잘못된 diff 파일명 형식: {diff_filename}")
 
-        except Exception as e:
-            raise DiffGenerationError(filename=relative_path, reason=str(e))
+        start_line = int(m.group(1))
+        flatten_name = m.group(2)
+        return start_line, flatten_name     # 반환 : (start_line, flatten_file_name)
 
-    def save_diff(self, result: DiffResult) -> Optional[Path]:
-        if not result.success or not result.diff.strip():
-            return None
 
-        flat_name = result.filename.replace("/", "__")
-        diff_path = self.diff_dir / f"{flat_name}.diff"
-        diff_path.write_text(result.diff, encoding="utf-8")
-        result.saved_path = str(diff_path)
-        return diff_path
+    # diff_dir 내 모든 js 파일 리스트 반환
+    def get_diff_files(self):
+        return list(self.diff_dir.glob("*.js"))
 
-    def generate_and_save(self, relative_path: str, modified_code: str) -> DiffResult:
-        result = self.generate_diff(relative_path, modified_code)
-        self.save_diff(result)
-        return result
 
-    def generate_from_blocks(self, blocks: List[ParsedCodeBlock]) -> List[DiffResult]:
-        results = []
-        for block in blocks:
-            if not block.filename:
-                results.append(DiffResult(
-                    filename="(unknown)",
-                    diff="",
-                    success=False,
-                    error="filename 주석 누락"
-                ))
-                continue
+    # 원본 repo 내 경로 매칭 후 diff 내용과 함께 리스트로 반환 (파일 읽기)
+    def load_diffs(self):
+        diff_files = self.get_diff_files()
+        diffs = []
 
+        for diff_file in diff_files:
             try:
-                result = self.generate_and_save(block.filename, block.code)
-                results.append(result)
-            except DiffGenerationError as e:
-                results.append(DiffResult(
-                    filename=e.filename,
-                    diff="",
-                    success=False,
-                    error=e.reason
-                ))
-        return results
+                start_line, flat_filename = self.parse_diff_filename(diff_file.name)
+                source_path = self.repo_dir / self.flatten_to_relative_path(flat_filename)
+
+                if not source_path.exists():
+                    print(f"[ WARN ] 원본 파일이 없습니다: {source_path}")
+                    continue
+
+                diff_content = diff_file.read_text(encoding="utf-8")
+
+                diffs.append({
+                    "start_line": start_line,
+                    "flat_filename": flat_filename,
+                    "source_path": source_path,
+                    "diff_content": diff_content,
+                })
+            except Exception as e:
+                print(f"[ ERROR ] diff 파일 처리 실패: {diff_file} - {e}")
+
+        return diffs

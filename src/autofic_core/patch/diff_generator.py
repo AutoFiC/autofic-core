@@ -1,58 +1,84 @@
 from pathlib import Path
 import re
+from typing import List, Dict, Any
+import subprocess
+import click
 
 class DiffGenerator:
     def __init__(self, repo_dir: Path, diff_dir: Path):
-        self.repo_dir = repo_dir    # repo_dir : 원본 코드 저장소 최상위 경로
-        self.diff_dir = diff_dir    # diff_dir : diff 파일들이 저장된 경로
+        self.repo_dir = repo_dir
+        self.diff_dir = diff_dir
 
-
-    # flatten 된 파일명을 repo 내 상대경로 변환
-    # 예: 'core_appHandler.js' -> Path('core/appHandler.js')
-    def flatten_to_relative_path(self, flat_name: str) -> Path:
-        parts = flat_name.split("_")
-        return Path(*parts[:-1]) / parts[-1] 
-
-
-    # '003_core_appHandler.js' -> start_line: 3 (int) / flatten_file_name: 'core_appHandler.js' (str) 추출
-    def parse_diff_filename(self, diff_filename: str) -> tuple[int, str]:
-        m = re.match(r"(\d{3})_(.+)$", diff_filename)
+    def parse_patch_filename_to_path(self, diff_filename: str) -> tuple[Path, int]:
+        m = re.match(r"patch_(.+)_(\d+)\.patch$", diff_filename)
         if not m:
-            raise ValueError(f"[ ERROR ] 잘못된 diff 파일명 형식: {diff_filename}")
+            click.secho(f"[ ERROR ] 잘못된 diff 파일명 형식: {diff_filename}", fg="red")
+            raise ValueError(f"잘못된 diff 파일명 형식: {diff_filename}")
+        
+        flat_filename = m.group(1)
+        line_no = int(m.group(2))
 
-        start_line = int(m.group(1))
-        flatten_name = m.group(2)
-        return start_line, flatten_name     # 반환 : (start_line, flatten_file_name)
+        parts = flat_filename.split("_")
+        relative_path = Path(*parts[:-1]) / parts[-1]
+        return relative_path, line_no
 
+    def get_patch_files(self) -> List[Path]:
+        return list(self.diff_dir.glob("*.patch"))
 
-    # diff_dir 내 모든 js 파일 리스트 반환
-    def get_diff_files(self):
-        return list(self.diff_dir.glob("*.js"))
+    def load_patches(self) -> List[Dict[str, Any]]:
+        patch_files = self.get_patch_files()
+        patches = []
 
-
-    # 원본 repo 내 경로 매칭 후 diff 내용과 함께 리스트로 반환 (파일 읽기)
-    def load_diffs(self):
-        diff_files = self.get_diff_files()
-        diffs = []
-
-        for diff_file in diff_files:
+        for patch_file in patch_files:
             try:
-                start_line, flat_filename = self.parse_diff_filename(diff_file.name)
-                source_path = self.repo_dir / self.flatten_to_relative_path(flat_filename)
+                relative_path, line_no = self.parse_patch_filename_to_path(patch_file.name)
+                source_path = self.repo_dir / relative_path
 
                 if not source_path.exists():
-                    print(f"[ WARN ] 원본 파일이 없습니다: {source_path}")
+                    click.secho(f"[ WARN ] 원본 파일이 없습니다: {source_path}", fg="yellow")
                     continue
 
-                diff_content = diff_file.read_text(encoding="utf-8")
+                patch_content = patch_file.read_text(encoding="utf-8")
 
-                diffs.append({
-                    "start_line": start_line,
-                    "flat_filename": flat_filename,
+                patches.append({
                     "source_path": source_path,
-                    "diff_content": diff_content,
+                    "patch_content": patch_content,
+                    "patch_path": patch_file,
+                    "start_line": line_no,
                 })
             except Exception as e:
-                print(f"[ ERROR ] diff 파일 처리 실패: {diff_file} - {e}")
+                click.secho(f"[ ERROR ] patch 파일 처리 실패: {patch_file} - {e}", fg="red")
 
-        return diffs
+        return patches
+
+    def apply_patch(self, patch_path: Path) -> bool:
+        try:
+            result = subprocess.run(
+                ["git", "apply", str(patch_path)],
+                cwd=self.repo_dir,
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if result.returncode != 0:
+                click.secho(f"[ ERROR ] patch 적용 실패: {patch_path} - {result.stderr.strip()}", fg="red")
+                return False
+            click.secho(f"[ SUCCESS ] {patch_path} patch 적용 성공", fg="green")
+            return True
+        except Exception as e:
+            click.secho(f"[ ERROR ] patch 적용 중 예외 발생: {patch_path} - {e}", fg="red")
+            return False
+
+    def apply_all_patches(self) -> List[Dict[str, Any]]:
+        patches = self.load_patches()
+        results = []
+
+        for patch in patches:
+            success = self.apply_patch(patch["patch_path"])
+            results.append({
+                "source_path": patch["source_path"],
+                "patch_path": patch["patch_path"],
+                "success": success,
+            })
+
+        return results

@@ -20,10 +20,11 @@ def merge_snippets_by_location(snippets: List[SemgrepSnippet]) -> List[SemgrepSn
         merged_snippets.append(SemgrepSnippet(
             input=base.input,
             output="",
-            idx=base.idx, 
+            idx=base.idx,
             start_line=start_line,
             end_line=end_line,
             snippet="\n\n".join(s.snippet for s in group),
+            snippet_numbered="\n\n".join(s.snippet_numbered for s in group),
             message=" | ".join(s.message for s in group),
             vulnerability_class=list({vc for s in group for vc in s.vulnerability_class}),
             cwe=list({c for s in group for c in s.cwe}),

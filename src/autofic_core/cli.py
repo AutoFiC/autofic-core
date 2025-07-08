@@ -12,10 +12,7 @@ from autofic_core.sast.semgrep_merger import merge_snippets_by_location
 from autofic_core.llm.prompt_generator import PromptGenerator
 from autofic_core.llm.llm_runner import LLMRunner, save_md_response
 from autofic_core.llm.response_parser import ResponseParser
-from autofic_core.patch.diff_merger import DiffMerger
-from autofic_core.pr_auto.create_yml import AboutYml
-from autofic_core.pr_auto.env_encrypt import EnvEncrypy
-from autofic_core.pr_auto.pr_procedure import PRProcedure
+from autofic_core.patch.diff_generator import DiffGenerator
 
 load_dotenv()
 
@@ -39,7 +36,7 @@ def run_cli(repo, save_dir, sast, rule):
     time.sleep(3)
     clone_path = handler.clone_repo(save_dir=str(save_dir), use_forked=handler.needs_fork)
     click.secho(f"\n[ SUCCESS ] 저장소를 {clone_path}에 클론했습니다!\n", fg="green")
-
+    
     if sast:
         click.echo("\nSemgrep 분석 시작\n")
         with create_progress() as progress:
@@ -75,17 +72,28 @@ def run_cli(repo, save_dir, sast, rule):
 
         click.secho(f"\n[ SUCCESS ] Semgrep 분석 완료! 결과가 '{semgrep_result_path}'에 저장되었습니다.\n", fg="green")
 
-        processed = SemgrepPreprocessor.preprocess(
+        # 줄 번호가 포함된 스니펫 파일 저장
+        snippets_dir = save_dir / "snippets"  
+        snippets_dir.mkdir(parents=True, exist_ok=True)
+        
+        processed_snippets = SemgrepPreprocessor.preprocess(
             input_json_path=semgrep_result_path,
             base_dir=clone_path
         )
-        merged = merge_snippets_by_location(processed)
+
+        for snippet in processed_snippets:
+            snippet_file = snippets_dir / f"snippet_{snippet.idx}.txt"
+            snippet_file.write_text(snippet.snippet_numbered, encoding="utf-8")
+
+        merged = merge_snippets_by_location(processed_snippets)
 
         prompts_generator = PromptGenerator()
         prompts = prompts_generator.generate_prompts(merged)
 
         llm = LLMRunner()
         llm_output_dir = save_dir / "llm"
+        llm_output_dir.mkdir(parents=True, exist_ok=True)
+
         click.echo("\nGPT 응답 생성 및 저장 시작\n")
         with create_progress() as progress:
             task = progress.add_task("[magenta]LLM 응답 중...", total=len(prompts))
@@ -98,69 +106,25 @@ def run_cli(repo, save_dir, sast, rule):
 
         click.secho(f"\n[ SUCCESS ] GPT 응답이 .md 파일로 저장 완료되었습니다!\n", fg="green")
 
-    # diff 파일 생성
+    # diff 생성
     diff_dir = save_dir / "diff"
     diff_dir.mkdir(parents=True, exist_ok=True)
     parser = ResponseParser(md_dir=llm_output_dir, diff_dir=diff_dir)
-    success = parser.extract_and_save_all()
-    if success:
-        click.secho(f"\n[ SUCCESS ] diff 파일들이 '{diff_dir}'에 생성되었습니다.\n", fg="green")
-    else:
-        click.secho(f"\n[ ERROR ] diff 파일 생성 중 문제가 발생했습니다.\n", fg="red")
+    results = parser.extract_and_save_all()
+    if not results:
+        click.secho(f"\n[ ERROR ] diff 파일 생성 실패\n", fg="red")
         return
+    click.secho(f"\n[ SUCCESS ] {len(results)}개의 diff 파일이 '{diff_dir}'에 생성되었습니다.\n", fg="green")
 
-    # diff 병합
-    result_dir = save_dir / "result"
-    result_dir.mkdir(parents=True, exist_ok=True)
 
-    click.echo("\nDiff 병합 및 파일 저장 시작\n")
-    diff_merger = DiffMerger(diffs=list(diff_dir.glob("*.patch")), clone_path=clone_path, result_path=result_dir)
-    diff_merger.merge_all()
+    # patch 적용
+    click.echo("\nPatch 적용 시작\n")
+    generator = DiffGenerator(repo_dir=clone_path, diff_dir=diff_dir)
+    patch_results = generator.apply_all_patches()  # apply_all_patches()에 result_dir 인자 제거
 
-    click.secho(f"\n[ SUCCESS ] 병합된 결과가 '{result_dir}'에 저장되었습니다.\n", fg="green")
-    
-    # PR 자동화
-    branch_num = 1
-    base_branch = 'main'
-    branch_name = "UNKNOWN"
-    repo_name = "UNKOWN"
-    upstream_owner = "UNKOWN"
-    save_dir = save_dir.joinpath('repo')
-    repo_url = repo.rstrip('/').replace('.git', '')
-    secret_discord = os.getenv('DISCORD_WEBHOOK_URL')
-    secret_slack = os.getenv('SLACK_WEBHOOK_URL')
-    token = os.getenv('GITHUB_TOKEN')
-    user_name = os.getenv('USER_NAME')
-    slack_webhook = os.environ.get('SLACK_WEBHOOK_URL')
-    discord_webhook = os.environ.get('DISCORD_WEBHOOK_URL')
-
-    # Define PRProcedure class
-    pr_procedure = PRProcedure(
-        base_branch, repo_name, upstream_owner, 
-        save_dir, repo_url, token, user_name
-    )
-    # Chapter 1
-    pr_procedure.post_init()
-    repo_name = pr_procedure.repo_name
-    upstream_owner = pr_procedure.upstream_owner
-    # Chaper 2
-    pr_procedure.mv_workdir()
-    # Chapter 3
-    pr_procedure.check_branch_exists()
-    branch_name = pr_procedure.branch_name
-    # Chapter 4
-    EnvEncrypy(user_name, repo_name, token).webhook_secret_notifier('DISCORD_WEBHOOK_URL', secret_discord)
-    EnvEncrypy(user_name, repo_name, token).webhook_secret_notifier('SLACK_WEBHOOK_URL', secret_slack)
-    # Chapter 5
-    AboutYml().create_pr_yml()
-    AboutYml().push_pr_yml(user_name, repo_name, token, branch_name)
-    # Chapter 6
-    pr_procedure.change_files()
-    # Chapter 7
-    pr_procedure.current_main_branch()
-    # Chapter 8,9
-    pr_procedure.generate_pr()
-    pr_procedure.create_pr()
+    success_count = sum(1 for r in patch_results if r["success"])
+    fail_count = len(patch_results) - success_count
+    click.secho(f"\n[ INFO ] Patch 적용 결과 - 성공: {success_count}, 실패: {fail_count}\n", fg="cyan")
 
 if __name__ == '__main__':
     main()

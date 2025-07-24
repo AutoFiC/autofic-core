@@ -6,19 +6,33 @@ class AutoficError(Exception):
 
 class GitHubTokenMissingError(AutoficError):
     def __init__(self):
-        super().__init__("GITHUB_TOKEN is not set in the environment.")
+        message = f"[ ERROR ] GitHub token is missing or invalid: Please ensure that the GITHUB_TOKEN environment variable is set correctly and contains a valid token."
+        super().__init__(message)
 
 class RepoURLFormatError(AutoficError):
     def __init__(self, repo_url):
-        super().__init__(f"Invalid GitHub repository URL format: {repo_url}")
+        message = f"[ ERROR ] Invalid GitHub repository URL format: {repo_url}"
+        super().__init__(message)
 
 class RepoAccessError(AutoficError):
-    def __init__(self):
-        super().__init__("Failed to access the repository.")
+    def __init__(self, original_error):
+        message = f"[ ERROR ] Cannot access repository: {original_error}"
+        super().__init__(message)
+        self.original_error = original_error
 
-class ForkFailedError(RepoAccessError):
-    def __init__(self, status_code, message):
-        super().__init__(f"Failed to fork repository (HTTP {status_code}) - {message}")
+class ForkFailedError(AutoficError):
+    def __init__(self, status_code, msg):
+        message = f"[ ERROR ] Failed to fork repository (HTTP {status_code}) - {msg}"
+        super().__init__(message)
+        
+class AccessDeniedError(AutoficError):
+    def __init__(self, path, original_error):
+        message = (
+            f"[ ERROR ] Access to the path '{path}' was denied. "
+            "Please close any applications or terminals using the directory and try again."
+        )
+        super().__init__(message)
+        self.original_error = original_error
 
 # downloader.py
 

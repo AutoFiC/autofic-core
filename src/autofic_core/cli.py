@@ -3,6 +3,7 @@ import json
 import time
 import os
 import sys
+import traceback
 from autofic_core.errors import *
 from pathlib import Path
 from rich.console import Console
@@ -30,6 +31,13 @@ from autofic_core.pr_auto.env_encrypt import EnvEncrypy
 from autofic_core.pr_auto.pr_procedure import PRProcedure
 from autofic_core.log.log_writer import LogManager
 from autofic_core.log.log_generator import LogGenerator
+from autofic_core.errors import (
+    GitHubTokenMissingError,
+    RepoURLFormatError,
+    RepoAccessError,
+    ForkFailedError,
+    AccessDeniedError
+)
 
 load_dotenv()
 console = Console()
@@ -45,11 +53,7 @@ class RepositoryManager:
         self.clone_path = None
         try:
             self.handler = GitHubRepoHandler(repo_url=self.repo_url)
-        except GitHubTokenMissingError as e:
-            console.print(f"[ ERROR ] GitHub token is missing: {e}", style="red")
-            raise
-        except RepoURLFormatError as e:
-            console.print(f"[ ERROR ] Invalid repository URL: {e}", style="red")
+        except (GitHubTokenMissingError, RepoURLFormatError):
             raise
 
     def clone(self):
@@ -61,24 +65,21 @@ class RepositoryManager:
                 self.handler.fork()
                 time.sleep(1)
                 console.print("\n[ SUCCESS ] Fork completed\n", style="green")
-        except ForkFailedError as e:
-            console.print(f"[ ERROR ] Failed to fork repository: {e}", style="red")
-            raise
 
-        try:
-            self.clone_path = Path(self.handler.clone_repo(save_dir=str(self.save_dir), use_forked=self.handler.needs_fork))
+            self.clone_path = Path(
+                self.handler.clone_repo(save_dir=str(self.save_dir), use_forked=self.handler.needs_fork)
+            )
             console.print(f"\n[ SUCCESS ] Repository cloned successfully: {self.clone_path}\n", style="green")
+
+        except ForkFailedError:
+            sys.exit(1)
+
         except RepoAccessError as e:
-            console.print(f"[ ERROR ] Cannot access repository: {e}", style="red")
-            raise
-        except (PermissionError, OSError) as e:
-            console.print(f"[ ERROR ] Access denied while cloning repository: {e}", style="red")
-            console.print("💡 Close any editors or terminals using the directory and try again.", style="yellow")
-            raise
-        except Exception as e:
-            console.print(f"[ ERROR ] Unexpected error during cloning: {e}", style="red")
             raise
 
+        except (PermissionError, OSError) as e:
+            raise AccessDeniedError(path=str(self.save_dir), original_error=e)
+        
 class SemgrepHandler:
     def __init__(self, repo_path: Path, save_dir: Path):
         self.repo_path = repo_path
@@ -307,7 +308,7 @@ class LLMProcessor:
         retry_prompt_generator = RetryPromptGenerator(parsed_dir=self.parsed_dir)
         retry_prompts = retry_prompt_generator.generate_prompts()
 
-        console.print("[RETRY] Regenerating GPT responses for modified files...\n")
+        console.print("[ RETRY ] Regenerating GPT responses for modified files...\n")
 
         llm = LLMRunner() 
         retry_output_dir = self.save_dir / "retry_llm"
@@ -410,7 +411,7 @@ class AutoFiCPipeline:
             
             merged_path = self.save_dir / "sast" / "merged_snippets.json"
             if not merged_path.exists():
-                console.print("[INFO] No merged_snippets.json file found. Skipping LLM stage.\n", style="cyan")
+                console.print("[ INFO ] No merged_snippets.json file found. Skipping LLM stage.\n", style="cyan")
                 sys.exit(0)
 
             with open(merged_path, "r", encoding="utf-8") as f:
@@ -425,7 +426,7 @@ class AutoFiCPipeline:
                 sys.exit(1)
             
             if not prompts:
-                console.print("[INFO] No valid prompts returned from LLM processor. Exiting pipeline early.\n", style="cyan")
+                console.print("[ INFO ] No valid prompts returned from LLM processor. Exiting pipeline early.\n", style="cyan")
                 sys.exit(0)
 
             self.llm_processor.extract_and_save_parsed_code()
@@ -570,8 +571,14 @@ def main(explain, repo, save_dir, sast, llm, llm_retry, patch, pr):
             log_manager.add_pr_log(pr_log_data)
             log_manager.add_repo_status(repo_data)
 
+    except AutoficError as e:
+        console.print(str(e), style="red")
+        sys.exit(1)
+
     except Exception as e:
-            console.print(f"[ ERROR ] {e}", style="red")
+        console.print(f"[ UNEXPECTED ERROR ] {str(e)}", style="red")
+        console.print(traceback.format_exc(), style="red")  # 스택 트레이스 출력
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

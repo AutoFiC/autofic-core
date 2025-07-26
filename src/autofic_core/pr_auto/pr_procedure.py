@@ -25,11 +25,15 @@ import requests
 import subprocess
 from pathlib import Path
 from typing import List
+from rich.console import Console
 from collections import defaultdict
+
 from autofic_core.sast.snippet import BaseSnippet
 from autofic_core.sast.semgrep.preprocessor import SemgrepPreprocessor
 from autofic_core.sast.codeql.preprocessor import CodeQLPreprocessor
 from autofic_core.sast.snykcode.preprocessor import SnykCodePreprocessor
+
+console = Console()
 
 class PRProcedure:
     """
@@ -129,7 +133,7 @@ class PRProcedure:
             if os.path.exists(path):
                 subprocess.run(['git', 'reset', '-q', path], check=False)
 
-        commit_message = f"[Autofic] {self.vulnerabilities} malicious code detected!!"
+        commit_message = f"[ AutoFiC ] {self.vulnerabilities} malicious code detected!!"
         subprocess.run(['git', 'commit', '-m', commit_message], check=True)
 
         try:
@@ -158,7 +162,7 @@ class PRProcedure:
         Uses vulnerability scan results (by semgrep) to generate a detailed PR body.
         If llm_generator implemented, then pr_body will add llm_result.
         """
-        print(f"[INFO] Creating PR on {self.user_name}/{self.repo_name}. base branch: {self.base_branch}")
+        console.print(f"[ INFO ] Creating PR on {self.user_name}/{self.repo_name}. Base branch: {self.base_branch}\n", style="white")
         pr_url = f"https://api.github.com/repos/{self.user_name}/{self.repo_name}/pulls"
         if self.tool == "semgrep":
             snippets = SemgrepPreprocessor.preprocess(self.json_path)
@@ -170,7 +174,7 @@ class PRProcedure:
             raise ValueError(f"Unknown tool: {self.tool}")
         pr_body = self.generate_markdown(snippets)
         data_post = {
-            "title": f"[Autofic] Security Patch {datetime.datetime.now().strftime('%Y-%m-%d')}",
+            "title": f"[ AutoFiC ] Security Patch {datetime.datetime.now().strftime('%Y-%m-%d')}",
             "head": f"{self.user_name}:{self.branch_name}",
             "base": self.base_branch,
             "body": pr_body
@@ -254,7 +258,7 @@ class PRProcedure:
             snippets = SnykCodePreprocessor.preprocess(self.json_path)
         pr_body = self.generate_markdown(snippets) 
         data_post = {
-            "title": f"[Autofic] Security Patch {datetime.datetime.now().strftime('%Y-%m-%d')}",
+            "title": f"[ AutoFiC ] Security Patch {datetime.datetime.now().strftime('%Y-%m-%d')}",
             "head": f"{self.user_name}:{self.pr_branch}",
             "base": self.base_branch,
             "body": pr_body
@@ -329,7 +333,7 @@ class PRProcedure:
 
         md = [
             "## 🔧 About This Pull Request",
-            "This patch was automatically created by **[AutoFiC](https://autofic.github.io)**,\nan open-source framework that combines **static analysis tools** with **AI-driven remediation**.",
+            "This patch was automatically created by **[ AutoFiC ](https://autofic.github.io)**,\nan open-source framework that combines **static analysis tools** with **AI-driven remediation**.",
             "\nUsing **Semgrep**, **CodeQL**, and **Snyk Code**, AutoFiC detected potential **security flaws** and applied **verified fixes**.",
             "Each patch includes **contextual explanations** powered by a **large language model** to support **review and decision-making**.",
             "",

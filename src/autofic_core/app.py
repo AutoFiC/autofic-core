@@ -120,10 +120,10 @@ class AutoFiCApp:
         pr_number = pr_procedure.create_pr()
 
         # for log
-        repo_data = self.log_gen.generate_repo_log(save_dir=Path(self.save_dir), name=repo_name, owner=upstream_owner,
-                                                   repo_url=repo_url, sastTool=tool, rerun=self.llm_retry)
-        pr_log_data = self.log_gen.generate_pr_log(owner=upstream_owner, repo=repo_name, user_name=user_name,
-                                                   repo_url=repo_url, repo_hash=repo_data["repo_hash"],
-                                                   pr_number=pr_number)
-        self.log_manager.add_pr_log(pr_log_data)
-        self.log_manager.add_repo_status(repo_data)
+        if(pr_number):
+            repo_data = self.log_gen.generate_repo_log(save_dir=Path(self.save_dir), name=repo_name, owner=upstream_owner,
+                                                       repo_url=repo_url, sastTool=tool, rerun=self.llm_retry)
+            pr_log_data = self.log_gen.generate_pr_log(owner=upstream_owner, repo=repo_name, user_name=user_name,
+                                                       repo_url=repo_url, repo_hash=repo_data["repo_hash"], pr_number=pr_number)
+            self.log_manager.add_pr_log(pr_log_data)
+            self.log_manager.add_repo_status(repo_data)

@@ -18,7 +18,9 @@
 """
 import os
 import subprocess
-import click
+from rich.console import Console
+
+console = Console()
 
 # Handles creation and git operations for GitHub Actions workflow YAML files
 class AboutYml:
@@ -82,7 +84,7 @@ jobs:
         """
         repo_url = f'https://x-access-token:{token}@github.com/{user_name}/{repo_name}.git'
         subprocess.run(['git', 'remote', 'set-url', 'origin', repo_url], check=True)
-        click.secho("[ INFO ] Pushing the generated .github/workflows/pr_notify.yml.", fg="yellow")
+        console.print("[ INFO ] Created GitHub Actions workflow file: pr_notify.yml\n", style="white")
         subprocess.run(['git', 'add', '.github/workflows/pr_notify.yml'], check=True)
-        subprocess.run(['git', 'commit', '-m', "[Autofic] Create package.json and CI workflow"], check=True)
+        subprocess.run(['git', 'commit', '-m', "[ AutoFiC ] Create package.json and CI workflow"], check=True)
         subprocess.run(['git', 'push', 'origin', branch_name], check=True)

@@ -159,6 +159,12 @@ class AutoFiCApp:
         yml_handler.push_pr_yml(user_name, repo_name, token, branch_name)
 
     def finalize_logging(self, pr_procedure, pr_number):
+        if not pr_number:
+            return
+
+        if pr_procedure.user_name == pr_procedure.upstream_owner:
+            return
+
         tool = self.sast.lower() if self.sast else None
         repo_url = self.repo.rstrip('/').replace('.git', '')
 

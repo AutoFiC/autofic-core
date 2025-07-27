@@ -38,8 +38,6 @@ if __name__ == "__main__":
     checker = GitHubChecker(token)
 
     for pr in log_data.get("prs", []):
-        if pr.get("approved") is True:
-            continue
         pr_number = pr.get("pr_number")
         owner = pr.get("owner")
         repo = pr.get("repo")
@@ -57,6 +55,6 @@ if __name__ == "__main__":
         if not checker.is_opened(owner, repo, pr_number):
             print(f"[✓] PR #{pr_number} is closed! Updating 'opened' to False...")
             requests.post(f"{log_url}/update_approval", json={
-            "pr_number": pr_number,
-            "opened": False,
+                "pr_number": pr_number,
+                "opened": False,
             })

@@ -7,17 +7,7 @@ name = "autofic-core"
 version = "0.1.0"
 description = "A solution for remediating vulnerable source code using LLMs."
 authors = [
-  {name = "autofic", email = "autofic.whs@gmail.com"},
-  {name = "Minchae Kim", email = "minxxcozy@gmail.com"},
-  {name = "Eunsol Kim"},
-  {name = "Seonju Park"},
-  {name = "Jeongmin Oh"},
-  {name = "Inyeong Jang", email = "726jang@gmail.com"},
-  {name = "Hongseo Jang", email = "janghongseo@naver.com"},
-  {name = "Yunji Jeong"},
-  {name = "Yunjeong Choe"},
-  {name = "Suhyun Park", email = "lovehyun@hotmail.com"},
-  {name = "Changhyun Lee", email = "dlckdgus200011@gmail.com"},
+  {name = "autofic", email = "autofic.whs@gmail.com"}
 ]
 readme = "README.md"
 license = {file = "LICENSE"}

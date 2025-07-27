@@ -71,4 +71,4 @@ class DiffGenerator:
             except Exception as e:
                 raise DiffGenerationError(parsed_file.name, str(e))
 
-        self.console.print("[ SUCCESS ] Diff files generated\n", style="green")
+        self.console.print("[ SUCCESS ] Diff files generated\n", style="bold green")

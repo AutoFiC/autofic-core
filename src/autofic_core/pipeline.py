@@ -52,14 +52,14 @@ class RepositoryManager:
 
         try:
             if self.handler.needs_fork:
-                console.print("\nAttempting to fork the repository...\n", style="cyan")
+                console.print("Attempting to fork the repository...\n", style="cyan")
                 self.handler.fork()
                 time.sleep(1)
-                console.print("\n[ SUCCESS ] Fork completed\n", style="green")
+                console.print("[ SUCCESS ] Fork completed\n", style="bold green")
 
             self.clone_path = Path(
                 self.handler.clone_repo(save_dir=str(self.save_dir), use_forked=self.handler.needs_fork))
-            console.print(f"\n[ SUCCESS ] Repository cloned successfully: {self.clone_path}\n", style="green")
+            console.print(f"[ SUCCESS ] Repository cloned successfully: {self.clone_path}", style="bold green")
 
         except ForkFailedError as e:
             sys.exit(1)
@@ -77,8 +77,10 @@ class SemgrepHandler:
         self.save_dir = save_dir
 
     def run(self):
+        description = "Running Semgrep...".ljust(28)  
         with create_progress() as progress:
-            task = progress.add_task("[cyan]Running Semgrep...", total=100)
+            task = progress.add_task(description, total=100)
+
             start = time.time()
             runner = SemgrepRunner(repo_path=str(self.repo_path), rule="p/javascript")
             result = runner.run_semgrep()
@@ -123,8 +125,10 @@ class CodeQLHandler:
         self.save_dir = save_dir
 
     def run(self):
+        description = "Running CodeQL...".ljust(28)  
         with create_progress() as progress:
-            task = progress.add_task("[cyan]Running CodeQL...", total=100)
+            task = progress.add_task(description, total=100)
+            
             start = time.time()
             runner = CodeQLRunner(repo_path=str(self.repo_path))
             result_path = runner.run_codeql()
@@ -166,10 +170,12 @@ class SnykCodeHandler:
     def __init__(self, repo_path: Path, save_dir: Path):
         self.repo_path = repo_path
         self.save_dir = save_dir
-
+        
     def run(self):
+        description = "Running SnykCode...".ljust(28)  
         with create_progress() as progress:
-            task = progress.add_task("[cyan]Running SnykCode...", total=100)
+            task = progress.add_task(description, total=100)
+            
             start = time.time()
             runner = SnykCodeRunner(repo_path=str(self.repo_path))
             result = runner.run_snykcode()
@@ -267,7 +273,6 @@ class LLMProcessor:
         self.patch_dir = save_dir / "patch"
 
     def run(self):
-        console.print()
         print_divider("LLM Response Generation Stage")
 
         prompt_generator = PromptGenerator()
@@ -284,10 +289,10 @@ class LLMProcessor:
 
         llm = LLMRunner()
         self.llm_output_dir.mkdir(parents=True, exist_ok=True)
-
-        console.print("Starting GPT response generation\n")
+        
+        description = "Generating LLM responses... \n".ljust(28)  
         with create_progress() as progress:
-            task = progress.add_task("[magenta]Generating LLM responses...", total=len(prompts))
+            task = progress.add_task(description, total=len(prompts))
 
             for p in prompts:
                 response = llm.run(p.prompt)
@@ -298,7 +303,7 @@ class LLMProcessor:
                 time.sleep(0.01)
             progress.update(task, completed=100)
 
-        console.print(f"\n[ SUCCESS ] LLM responses saved → {self.llm_output_dir}\n", style="green")
+        console.print(f"[ SUCCESS ] LLM responses saved → {self.llm_output_dir}", style="bold green")
         return prompts, file_snippets
 
     def retry(self):
@@ -327,7 +332,7 @@ class LLMProcessor:
                     time.sleep(0.01)
             progress.update(task, completed=100)
 
-        console.print(f"\n[ SUCCESS ] Retry LLM responses saved → {retry_output_dir}\n", style="green")
+        console.print(f"\n[ SUCCESS ] Retry LLM responses saved → {retry_output_dir}\n", style="bold green")
 
         return retry_prompts, retry_output_dir
 
@@ -370,7 +375,7 @@ class PatchManager:
         success = patch_applier.apply_all()
 
         if success:
-            console.print(f"\n[ SUCCESS ] All patches successfully applied\n", style="green")
+            console.print(f"[ SUCCESS ] All patches successfully applied", style="bold green")
         else:
             console.print(f"\n[ WARN ] Some patches failed to apply → {self.repo_dir}\n", style="yellow")
 

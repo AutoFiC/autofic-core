@@ -106,7 +106,7 @@ class AutoFiCApp:
             pr_procedure.generate_pr()
             pr_number = pr_procedure.create_pr()
 
-            console.print(f"\n[✓] Pull Request created successfully!", style="bold green")
+            console.print(f"\n[ SUCCESS ] Pull Request created successfully!\n", style="bold green")
             time.sleep(0.5)
 
             self.finalize_logging(pr_procedure, pr_number)

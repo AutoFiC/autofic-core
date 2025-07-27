@@ -109,6 +109,7 @@ class RetryPromptGenerationError(AutoficError):
 
 class DiffWarningMessages:
     ORIGINAL_FILE_NOT_FOUND = "[ WARN ] Original file not found: {}"
+    NO_CHANGES_DETECTED = "[ WARN ] No changes detected in the file: {}"
 
 class DiffGenerationError(AutoficError):
     def __init__(self, filename: str, reason: str):

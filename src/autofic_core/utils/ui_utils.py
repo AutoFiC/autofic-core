@@ -5,9 +5,17 @@ from pathlib import Path
 
 console = Console()
 
+def print_divider(title: str):
+    diamond = "◆"
+    stage = f"[ {title} ]"
+    content = f" {diamond} {stage} {diamond} "
+    
+    total_width = 90
+    line_length = (total_width - len(content)) // 2
+    line = "━" * line_length
+    divider = f"{line}{content}{line}"
 
-def print_divider(title):
-    console.print(f"\n\n[bold magenta]{'-'*20} [ {title} ] {'-'*20}[/bold magenta]\n\n")
+    console.print("\n\n" + f"[bold bright_magenta]{divider}[/bold bright_magenta]\n\n")
 
 
 def extract_repo_name(repo_url: str) -> str:
@@ -18,11 +26,12 @@ def print_summary(repo_url: str, detected_issues_count: int, output_dir: str, re
     print_divider("AutoFiC Summary")
 
     repo_name = extract_repo_name(repo_url)
-    console.print(f"✔️  [bold]Target Repository:[/bold] {repo_name}")
-    console.print(f"✔️  [bold]Files with detected vulnerabilities:[/bold] {detected_issues_count} files")
-    console.print(f"✔️  [bold]LLM Responses:[/bold] Saved in the 'llm' folder")
+    console.print(f"📦 [bold]Target Repository:[/bold] {repo_name}")
+    console.print()
+    console.print(f"🛡️  [bold]Files with detected vulnerabilities:[/bold] {detected_issues_count} files")
+    console.print()
+    console.print(f"🤖 [bold]LLM Responses:[/bold] Saved in the 'llm' folder")
 
-    console.print(f"\n[bold magenta]{'━'*64}[/bold magenta]\n")
     time.sleep(2.0)
 
 
@@ -66,4 +75,3 @@ def print_help_message():
   - The --patch option must be run before using --llm or --llm-retry options.
   - The --pr option must be run before using --patch option.
     """)
-

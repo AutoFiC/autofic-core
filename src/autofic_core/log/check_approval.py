@@ -44,17 +44,13 @@ if __name__ == "__main__":
 
         print(f"[INFO] Checking PR #{pr_number} for {owner}/{repo}...")
 
+        approved = checker.is_approved(owner, repo, pr_number)
+        opened = checker.is_opened(owner, repo, pr_number)
+        
+        print(f"  → approved: {approved}, opened: {opened}")
 
-        if checker.is_approved(owner, repo, pr_number):
-            print(f"[✓] PR #{pr_number} is merged! Updating log...")
-            requests.post(f"{log_url}/update_approval", json={
-                "pr_number": pr_number,
-                "approved": True,
-            })
-
-        if not checker.is_opened(owner, repo, pr_number):
-            print(f"[✓] PR #{pr_number} is closed! Updating 'opened' to False...")
-            requests.post(f"{log_url}/update_approval", json={
-                "pr_number": pr_number,
-                "opened": False,
-            })
+        requests.post(f"{log_url}/update_approval", json={
+            "pr_number": pr_number,
+            "approved": approved,
+            "opened": opened
+        })

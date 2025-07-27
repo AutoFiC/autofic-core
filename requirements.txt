@@ -1,4 +1,3 @@
--e git+https://github.com/AutoFiC/autofic-core.git@1643829b2507ea1f2d00c3c05b8428d2685fdd54#egg=autofic_core
 certifi==2025.4.26
 cffi==1.17.1
 charset-normalizer==3.4.2

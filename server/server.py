@@ -93,7 +93,8 @@ def add_repo_status():
 def update_approval():
     data = request.get_json()
     pr_number = data.get("pr_number")
-    approved = data.get("approved", True)
+    approved = data.get("approved")
+    opened = data.get("opened")
 
     if pr_number is None:
         return jsonify({"error": "pr_number is required"}), 400
@@ -104,6 +105,7 @@ def update_approval():
     for pr in log_data.get("prs", []):
         if pr.get("pr_number") == pr_number:
             pr["approved"] = approved
+            pr["opened"] =  opened
             updated = True
 
     if updated:

@@ -24,6 +24,7 @@ class LogGenerator:
             "repo_url": repo_url,
             "repo_hash": repo_hash,
             "pr_number": pr_number,
+            "opened": True,
             "approved": False
         }
 

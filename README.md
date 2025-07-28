@@ -162,7 +162,7 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](https:
 **👩🏻‍💻 Development Team**
 - Minchae Kim ([@minxxcozy](https://github.com/minxxcozy))
 - Eunsol Kim ([@eunsol1530](https://github.com/eunsol1530))
-- Jeongmin Oh ([@soonae](https://github.com/soonnae))
+- Jeongmin Oh ([@soonnae](https://github.com/soonnae))
 - Inyeong Jang ([@inyeongjang](https://github.com/inyeongjang))
 
 **🔬 Research Team**

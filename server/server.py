@@ -95,6 +95,7 @@ def update_approval():
     pr_number = data.get("pr_number")
     approved = data.get("approved")
     opened = data.get("opened")
+    repo_url = data.get("repo_url")
 
     if pr_number is None:
         return jsonify({"error": "pr_number is required"}), 400
@@ -103,7 +104,7 @@ def update_approval():
     updated = False
 
     for pr in log_data.get("prs", []):
-        if pr.get("pr_number") == pr_number:
+        if pr.get("pr_number") == pr_number and pr.get("repo_url") ==repo_url:
             pr["approved"] = approved
             pr["opened"] =  opened
             updated = True

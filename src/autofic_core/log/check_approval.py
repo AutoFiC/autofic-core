@@ -41,6 +41,7 @@ if __name__ == "__main__":
         pr_number = pr.get("pr_number")
         owner = pr.get("owner")
         repo = pr.get("repo")
+        repo_url = pr.get("repo_url")
 
         print(f"[INFO] Checking PR #{pr_number} for {owner}/{repo}...")
 
@@ -52,5 +53,6 @@ if __name__ == "__main__":
         requests.post(f"{log_url}/update_approval", json={
             "pr_number": pr_number,
             "approved": approved,
-            "opened": opened
+            "opened": opened,
+            "repo_url": repo_url
         })

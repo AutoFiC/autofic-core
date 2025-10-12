@@ -1,147 +1,178 @@
-# ⚙️ AutoFiC 
+# AutoFiC
 
-**LLM을 활용한 취약한 소스코드 수정 솔루션**
+> **Remediate vulnerable source code at scale using LLMs and automation.**
 
----
+[![License](https://img.shields.io/github/license/AutoFiC/autofic-core)](./LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
 
-## 🚀 개발 환경 세팅 
 
-### 1. Python 설치
-- [Python 공식 다운로드](https://www.python.org/downloads/)
-- **Python 3.8 이상** 설치 권장
-- 설치 시 "Add Python to PATH" 옵션 반드시 체크
+## 🚀 Overview
 
-### 2. Git 설치 및 레포지토리 클론
-- [Git 다운로드](https://git-scm.com/downloads)
-- 터미널/명령 프롬프트/PowerShell/터미널 앱에서:
-    ```
-    git clone https://github.com/AutoFiC/autofic-core.git
-    cd autofic-core
-    ```
+**AutoFiC** is the project, providing a CLI-based automation pipeline for detecting, analyzing, and remediating source code vulnerabilities using the power of LLMs and static analysis tools.
 
-### 3. 가상환경(venv) 생성 및 활성화
+The project is designed for **automated security auditing, bulk code scanning, and mass vulnerability remediation** across multiple repositories, with seamless integration into modern CI/CD workflows.
 
-- Windows (CMD)
-    ```
-    python -m venv venv
-    venv\Scripts\activate
-    ```
 
--  Windows (PowerShell)
-    ```
-    python -m venv venv
-    .\venv\Scripts\activate
-    ```
+## ✨ Features
 
-- Windows (Git Bash)
-    ```
-    python -m venv venv
-    source venv/Scripts/activate
-    ```
+- **Automated Vulnerability Detection**  
+  Integrates with tools like **CodeQL, Semgrep, Snyk Code** to identify vulnerabilities in source code.
 
-- macOS / Linux (터미널)
-    ```
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
+- **LLM-Powered Remediation**  
+  Uses Large Language Models to suggest and patch vulnerabilities automatically.
 
-> 가상환경이 활성화되면 프롬프트 앞에 `(venv)`가 표시됩니다.
+- **Multi-Repository Support**  
+  Bulk-clone and analyze many repositories with configurable filters (e.g., stars, language).
 
-### 4. pip 최신화 (권장) 
-```
-pip install --upgrade pip
-```
+- **CLI Tooling**  
+  Command-line interface for easy integration into scripts and CI/CD pipelines.
 
-### 5. 필수 라이브러리 및 개발 모드 설치
-```
-pip install -r requirements.txt
-pip install -e . 
-```
+- **SARIF/JSON Reporting**  
+  Outputs results in standardized formats for downstream processing or dashboards.
 
-### 6. 환경변수 파일 준비
-```
-cp .env.example .env
-``` 
+- **Extensible and Modular**  
+  Easily extend with new vulnerability scanners, languages, or custom rules.
 
-> `.env` 파일에 본인의 GitHub 토큰, OpenAI API 키 등 필요한 값을 입력하세요.
 
----
-
-## ⚡ 실행 방법
-
-### 1. CLI 직접 실행
+## 🏗️ Architecture
 
 ```
-python -m autofic_core.cli --repo https://github.com/AutoFiC/autofic-core.git
+                                            +---------------------+
+                                            |   [GitHub Repos]    |
+                                            +----------+----------+
+                                                       |
+                                                       v
+                                            +---------------------+
+                                            | Vulnerability Scan  |   (CodeQL / Semgrep / Snyk)
+                                            +----------+----------+
+                                                       |
+                                          SARIF/JSON   v
+                                            +---------------------+
+                                            |    autofic-core     |
+                                            |   (Orchestrator)    |
+                                            +----------+----------+
+                                                       |
+                                    +------------------+-------------------+
+                                    |                                      |
+                                    v                                      v
+                          +---------------------+                +---------------------+
+                          |   LLM-based Patch   |<-------------->|   Patch Validator   |
+                          |  (OpenAI, etc.)     |                |   (Optional CI)     |
+                          +---------------------+                +---------------------+
+                                    |
+                                    v
+                            +---------------+
+                            |  Auto PR to   |
+                            |   GitHub Repo |
+                            +---------------+
+```
+- **Vulnerability Scan** : Detect vulnerabilities with static analysis tools (CodeQL, Semgrep, Snyk).
+- **autofic-core** : Parses findings, sends code to LLM, receives patch suggestions, applies fixes.
+- **LLM-based Patch** : Uses large language models (e.g., OpenAI) to generate secure code patches.
+- **Patch Validator (Optional)** : Runs CI/tests to validate patches.
+- **Auto PR** : Automatically creates a pull request with the fix to the target repository.
+
+
+## ⚡ Getting Started
+
+### 1. Prerequisites
+
+- **Python 3.8+**
+- [CodeQL CLI](https://codeql.github.com/docs/codeql-cli/) *(for CodeQL support)*
+- [Semgrep CLI](https://semgrep.dev/docs/cli/) *(for Semgrep support)*
+- [Snyk CLI](https://docs.snyk.io/snyk-cli/install-the-snyk-cli) *(optional)*
+- GitHub Personal Access Token (if accessing private repos)
+
+### 2. Installation
+
+Clone the repo and install dependencies:
+
+```bash
+git clone https://github.com/AutoFiC/autofic-core.git
+cd autofic-core
+python -m venv .venv
+source .venv/bin/activate   # (Windows: .venv\Scripts\activate)
+pip install --upgrade pip; pip install -r requirements.txt; pip install -e .;
+````
+
+### 3. Usage
+
+#### 🚦 CLI Example
+
+
+```bash
+python -m autofic_core.cli \
+  --repo <Vulnerable Repository> \
+  --sast <semgrep|codeql|snyk> \
+  --llm \
+  --save-dir <Absolute Path> \
+  --patch \
+  --pr
 ```
 
-### 2. 명령어로 실행 (개발 모드 설치 후) 
+- --repo : Target repository URL
+- --sast : Vulnerability scanner to use (semgrep, codeql, etc.)
+- --llm : Enable LLM-based remediation
+- --save-dir : Directory to store scan results
+- --patch : Apply suggested patches
+- --pr : Automatically create a Pull Request with fixes
 
-```
-autofic-core --repo https://github.com/AutoFiC/autofic-core.git
-```
+#### 🔄 Typical Workflow
+- Scan the target repository for vulnerabilities using static analysis.
+- Remediate detected vulnerabilities with automated LLM-based patch suggestions.
+- Generate reports and/or create a Pull Request with the security fixes.
+- See python -m autofic_core.cli --help for the full list of options and usage details.
 
----
 
-## 🧪 테스트 방법
+## 🧩 Configuration
 
-```
-pytest tests/ 
-``` 
+Configuration is done via CLI flags and/or `.env` files.
 
-- 모든 테스트가 **passed** 되면 정상 
+* `GITHUB_TOKEN` - For accessing private repositories and creating pull requests.
+* `OPENAI_API_KEY` - For LLM-powered patch suggestions.
+* `USER_NAME` - Name or ID for audit trails or commit information.
+* `DISCORD_WEBHOOK_URL` - (Optional) Discord webhook URL for notifications.
+* `SLACK_WEBHOOK_URL` - (Optional) Slack webhook URL for notifications.
 
----
 
-## 📁 주요 파일 설명
+## 🤝 Contributing
 
-| 파일/폴더             | 설명                                      |
-|-----------------------|-------------------------------------------|
-| src/autofic_core/     | 핵심 기능 Python 소스코드                  |
-| tests/                | 테스트 코드                                |
-| requirements.txt      | 필수 라이브러리 목록                       |
-| pyproject.toml        | 패키지/배포/엔트리포인트 설정              |
-| .env.example          | 환경변수 템플릿 (실제 값은 .env에 입력)    |
-| .gitignore            | Git에 올리지 않을 파일/폴더 목록           |
-| LICENSE               | 오픈소스 라이선스(MIT)           |
-| README.md             | 이 문서                                    |
+We welcome all contributions!
 
----
+1. Fork the repo and create your branch : `git checkout -b feature/your-feature`
+2. Commit your changes : `git commit -am 'Add new feature'`
+3. Push to the branch : `git push origin feature/your-feature`
+4. Open a Pull Request
 
-## 👥 협업 규칙
 
-- **가상환경(venv)과 .env 파일은 Git에 올리지 마세요!**
-- 기능 추가/수정은 반드시 브랜치 생성 후 Pull Request로 병합
-- 코드 리뷰/테스트 통과 후 main 브랜치에 반영
+## 📄 License
 
----
+This project is licensed under the Apache 2.0 License - see the [LICENSE](https://github.com/AutoFiC/autofic-core/blob/dev/LICENSE) file for details.
 
-## 📝 커밋 메시지 규칙
 
-- 커밋 메시지는 아래 형식을 지켜주세요.
-    - `Add: ...` (새 기능)
-    - `Fix: ...` (버그 수정)
-    - `Update: ...` (기존 코드/문서/설정 변경)
-    - `Remove: ...` (삭제)
-    - `Refactor: ...` (구조 개선)
-    - `Docs: ...` (문서)
-    - `Test: ...` (테스트)
-    - `Chore: ...` (환경/설정)
-- 예시:
-    - `Add: SAST 실행 기능 구현`
-    - `Fix: 파일 필터링 버그 수정`
-    - `Docs: README 업데이트`
+## 🙋 Contact
 
----
+* Issues/Feature Requests : [GitHub Issues](https://github.com/AutoFiC/autofic-core/issues)
+* Main Team : [AutoFiC Organization](https://github.com/AutoFiC)
+* Main Page : [AutoFiC Official](https://autofic.github.io)
 
-## 🌿 브랜치명 규칙
 
-- 브랜치명은 아래 형식을 권장합니다.
-    - `feature/기능명` (새 기능)
-    - `bugfix/이슈번호-설명` (버그 수정)
-    - `docs/문서명` (문서)
-    - `test/설명` (테스트)
-- 예시:
-    - `feature/github-api-integration`
-    - `bugfix/34-filter-extension-error`
-    - `docs/update-readme`
+## 👨‍💻 Developers
+
+**👩🏻‍💻 Development Team**
+- Minchae Kim ([@minxxcozy](https://github.com/minxxcozy))
+- Eunsol Kim ([@eunsol1530](https://github.com/eunsol1530))
+- Jeongmin Oh ([@soonnae](https://github.com/soonnae))
+- Inyeong Jang ([@inyeongjang](https://github.com/inyeongjang))
+
+**🔬 Research Team**
+- Seonju Park ([@seoonju](https://github.com/seoonju))
+- Hongseo Jang ([@pxxguin](https://github.com/pxxguin))
+- Yunji Jeong ([@jungyun404](https://github.com/jungyun404))
+- Yunjeong Choe ([@yjchoe818](https://github.com/yjchoe818))
+
+**👨🏻‍🏫 Mentor**
+- Suhyun Park ([@lovehyun](https://github.com/lovehyun))
+
+**👨🏻‍🏫 Project Leader**
+- Changhyun Lee ([@eeche](https://github.com/eeche))

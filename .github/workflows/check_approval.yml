@@ -1,0 +1,29 @@
+name: Check PR Approval Status
+
+on:
+  schedule:
+    - cron: '00 21 * * *'  # 매일 오전 6시
+  workflow_dispatch:      
+
+jobs:
+  check-approval:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Check PR Approval Status
+        env:
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
+          LOG_API_URL: ${{ secrets.LOG_API_URL }} 
+        run: |
+          python src/autofic_core/log/check_approval.py

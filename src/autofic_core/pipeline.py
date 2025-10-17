@@ -22,6 +22,8 @@ from autofic_core.sast.codeql.preprocessor import CodeQLPreprocessor
 from autofic_core.sast.snykcode.runner import SnykCodeRunner
 from autofic_core.sast.snykcode.preprocessor import SnykCodePreprocessor
 from autofic_core.sast.merger import merge_snippets_by_file
+# ⬇️ 여기만 변경
+from autofic_core.sast.xml_generator import render_custom_context, RenderOptions
 
 from autofic_core.llm.prompt_generator import PromptGenerator
 from autofic_core.llm.llm_runner import LLMRunner, save_md_response
@@ -58,13 +60,14 @@ class RepositoryManager:
                 console.print("[ SUCCESS ] Fork completed\n", style="bold green")
 
             self.clone_path = Path(
-                self.handler.clone_repo(save_dir=str(self.save_dir), use_forked=self.handler.needs_fork))
+                self.handler.clone_repo(save_dir=str(self.save_dir), use_forked=self.handler.needs_fork)
+            )
             console.print(f"[ SUCCESS ] Repository cloned successfully: {self.clone_path}", style="bold green")
 
-        except ForkFailedError as e:
+        except ForkFailedError:
             sys.exit(1)
 
-        except RepoAccessError as e:
+        except RepoAccessError:
             raise
 
         except (PermissionError, OSError) as e:
@@ -77,7 +80,7 @@ class SemgrepHandler:
         self.save_dir = save_dir
 
     def run(self):
-        description = "Running Semgrep...".ljust(28)  
+        description = "Running Semgrep...".ljust(28)
         with create_progress() as progress:
             task = progress.add_task(description, total=100)
 
@@ -103,17 +106,35 @@ class SemgrepHandler:
         sast_dir.mkdir(parents=True, exist_ok=True)
         before_path = sast_dir / "before.json"
         SemgrepPreprocessor.save_json_file(data, before_path)
+
         snippets = SemgrepPreprocessor.preprocess(str(before_path), str(self.repo_path))
         merged = merge_snippets_by_file(snippets)
+
         merged_path = sast_dir / "merged_snippets.json"
         with open(merged_path, "w", encoding="utf-8") as f:
             json.dump([s.model_dump() for s in merged], f, indent=2, ensure_ascii=False)
+
+        # Team-Atlanta XML 렌더링 + (선택) XSD 검증
+        try:
+            xml_out = sast_dir / "CUSTOM_CONTEXT.xml"
+            schema_path = Path("schemas/custom_context.xsd").resolve()
+            os.environ["AUTOFIC_LAST_SAST_TOOL"] = "semgrep"
+            render_custom_context(
+                merged_snippets=merged,
+                output_path=xml_out,
+                schema_path=schema_path if schema_path.exists() else None,
+                options=RenderOptions(schema_location="schemas/custom_context.xsd")
+            )
+            console.print(f"[ SUCCESS ] CUSTOM_CONTEXT.xml generated → {xml_out}", style="bold green")
+        except Exception as e:
+            console.print(f"[ WARN ] CUSTOM_CONTEXT.xml generation/validation skipped: {e}", style="yellow")
 
         if not merged:
             console.print("\n[ INFO ] No vulnerabilities found.\n", style="yellow")
             console.print(
                 "AutoFiC automation has been halted.--llm, --patch, and --pr stages will not be executed.\n",
-                style="yellow")
+                style="yellow",
+            )
             return None
 
         return merged_path
@@ -125,10 +146,10 @@ class CodeQLHandler:
         self.save_dir = save_dir
 
     def run(self):
-        description = "Running CodeQL...".ljust(28)  
+        description = "Running CodeQL...".ljust(28)
         with create_progress() as progress:
             task = progress.add_task(description, total=100)
-            
+
             start = time.time()
             runner = CodeQLRunner(repo_path=str(self.repo_path))
             result_path = runner.run_codeql()
@@ -150,17 +171,34 @@ class CodeQLHandler:
         sast_dir.mkdir(parents=True, exist_ok=True)
         before_path = sast_dir / "before.json"
         CodeQLPreprocessor.save_json_file(data, before_path)
+
         snippets = CodeQLPreprocessor.preprocess(str(before_path), str(self.repo_path))
         merged = merge_snippets_by_file(snippets)
+
         merged_path = sast_dir / "merged_snippets.json"
         with open(merged_path, "w", encoding="utf-8") as f:
             json.dump([s.model_dump() for s in merged], f, indent=2, ensure_ascii=False)
+
+        try:
+            xml_out = sast_dir / "CUSTOM_CONTEXT.xml"
+            schema_path = Path("schemas/custom_context.xsd").resolve()
+            os.environ["AUTOFIC_LAST_SAST_TOOL"] = "codeql"
+            render_custom_context(
+                merged_snippets=merged,
+                output_path=xml_out,
+                schema_path=schema_path if schema_path.exists() else None,
+                options=RenderOptions(schema_location="schemas/custom_context.xsd")
+            )
+            console.print(f"[ SUCCESS ] CUSTOM_CONTEXT.xml generated → {xml_out}", style="bold green")
+        except Exception as e:
+            console.print(f"[ WARN ] CUSTOM_CONTEXT.xml generation/validation skipped: {e}", style="yellow")
 
         if not merged:
             console.print("\n[ INFO ] No vulnerabilities found.\n", style="yellow")
             console.print(
                 "AutoFiC automation has been halted.--llm, --patch, and --pr stages will not be executed.\n",
-                style="yellow")
+                style="yellow",
+            )
             return None
 
         return merged_path
@@ -170,12 +208,12 @@ class SnykCodeHandler:
     def __init__(self, repo_path: Path, save_dir: Path):
         self.repo_path = repo_path
         self.save_dir = save_dir
-        
+
     def run(self):
-        description = "Running SnykCode...".ljust(28)  
+        description = "Running SnykCode...".ljust(28)
         with create_progress() as progress:
             task = progress.add_task(description, total=100)
-            
+
             start = time.time()
             runner = SnykCodeRunner(repo_path=str(self.repo_path))
             result = runner.run_snykcode()
@@ -195,17 +233,34 @@ class SnykCodeHandler:
         sast_dir.mkdir(parents=True, exist_ok=True)
         before_path = sast_dir / "before.json"
         SnykCodePreprocessor.save_json_file(data, before_path)
+
         snippets = SnykCodePreprocessor.preprocess(str(before_path), str(self.repo_path))
         merged = merge_snippets_by_file(snippets)
+
         merged_path = sast_dir / "merged_snippets.json"
         with open(merged_path, "w", encoding="utf-8") as f:
             json.dump([s.model_dump() for s in merged], f, indent=2, ensure_ascii=False)
+
+        try:
+            xml_out = sast_dir / "CUSTOM_CONTEXT.xml"
+            schema_path = Path("schemas/custom_context.xsd").resolve()
+            os.environ["AUTOFIC_LAST_SAST_TOOL"] = "snykcode"
+            render_custom_context(
+                merged_snippets=merged,
+                output_path=xml_out,
+                schema_path=schema_path if schema_path.exists() else None,
+                options=RenderOptions(schema_location="schemas/custom_context.xsd")
+            )
+            console.print(f"[ SUCCESS ] CUSTOM_CONTEXT.xml generated → {xml_out}", style="bold green")
+        except Exception as e:
+            console.print(f"[ WARN ] CUSTOM_CONTEXT.xml generation/validation skipped: {e}", style="yellow")
 
         if not merged:
             console.print("\n[ INFO ] No vulnerabilities found.\n", style="yellow")
             console.print(
                 "AutoFiC automation has been halted.--llm, --patch, and --pr stages will not be executed.\n",
-                style="yellow")
+                style="yellow",
+            )
             return None
 
         return merged_path
@@ -289,14 +344,13 @@ class LLMProcessor:
 
         llm = LLMRunner()
         self.llm_output_dir.mkdir(parents=True, exist_ok=True)
-        
-        description = "Generating LLM responses... \n".ljust(28)  
+
+        description = "Generating LLM responses... \n".ljust(28)
         with create_progress() as progress:
             task = progress.add_task(description, total=len(prompts))
 
             for p in prompts:
                 response = llm.run(p.prompt)
-
                 save_md_response(response, p, output_dir=self.llm_output_dir)
 
                 progress.update(task, advance=1)
@@ -381,7 +435,8 @@ class PatchManager:
 
 
 class AutoFiCPipeline:
-    def __init__(self, repo_url: str, save_dir: Path, sast: bool, sast_tool: str, llm: bool, llm_retry: bool, patch: bool, pr: bool):
+    def __init__(self, repo_url: str, save_dir: Path, sast: bool, sast_tool: str,
+                 llm: bool, llm_retry: bool, patch: bool, pr: bool):
         self.repo_url = repo_url
         self.save_dir = save_dir.expanduser().resolve()
         self.sast = sast
@@ -424,8 +479,9 @@ class AutoFiCPipeline:
             with open(merged_path, "r", encoding="utf-8") as f:
                 merged_data = json.load(f)
 
-            self.llm_processor = LLMProcessor(sast_result_path, self.repo_manager.clone_path, self.save_dir,
-                                               self.sast_tool)
+            self.llm_processor = LLMProcessor(
+                sast_result_path, self.repo_manager.clone_path, self.save_dir, self.sast_tool
+            )
 
             try:
                 prompts, file_snippets = self.llm_processor.run()
@@ -434,8 +490,10 @@ class AutoFiCPipeline:
                 sys.exit(1)
 
             if not prompts:
-                console.print("[ INFO ] No valid prompts returned from LLM processor. Exiting pipeline early.\n",
-                              style="cyan")
+                console.print(
+                    "[ INFO ] No valid prompts returned from LLM processor. Exiting pipeline early.\n",
+                    style="cyan",
+                )
                 sys.exit(0)
 
             self.llm_processor.extract_and_save_parsed_code()
@@ -450,12 +508,12 @@ class AutoFiCPipeline:
                 repo_url=self.repo_url,
                 detected_issues_count=len(unique_file_paths),
                 output_dir=str(llm_output_dir),
-                response_files=response_files
+                response_files=response_files,
             )
 
         if self.patch:
             parsed_dir = self.save_dir / ("retry_parsed" if self.llm_retry else "parsed")
             patch_dir = self.save_dir / ("retry_patch" if self.llm_retry else "patch")
-            
+
             patch_manager = PatchManager(parsed_dir, patch_dir, self.repo_manager.clone_path)
             patch_manager.run()

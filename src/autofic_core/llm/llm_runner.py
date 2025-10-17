@@ -1,107 +1,132 @@
-# =============================================================================
-# Copyright 2025 AutoFiC Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# =============================================================================
+from __future__ import annotations
 
 import os
-import click
+import re
+import time
+from dataclasses import dataclass
 from pathlib import Path
-from openai import OpenAI
-from typing import Any
-from dotenv import load_dotenv
+from typing import Any, List, Optional, Tuple
+
+from openai import OpenAI, APIConnectionError, RateLimitError
+from openai.types.chat import ChatCompletion
+
 from autofic_core.errors import LLMExecutionError
-from autofic_core.sast.merger import merge_snippets_by_file
-from autofic_core.llm.prompt_generator import PromptGenerator
-
-load_dotenv()
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-class LLMRunner:
-    """
-    Run LLM with a given prompt.
-    """
-    def __init__(self, model="gpt-4o"):
-        self.model = model
-
-    def run(self, prompt: str) -> str:
-        """
-        Run prompt and return response.
-        Raises:
-            LLMExecutionError: On OpenAI error
-        """
-        try:
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a security code fixer."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            raise LLMExecutionError(str(e))
 
 
-def save_md_response(content: str, prompt_obj: Any, output_dir: Path) -> str:
-    """
-    Save response to a markdown file.
-    Returns:
-        Path: Saved file path
-    """
+DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+DEFAULT_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.2"))
+MAX_RETRIES = int(os.getenv("OPENAI_MAX_RETRIES", "3"))
+RETRY_BACKOFF = float(os.getenv("OPENAI_RETRY_BACKOFF", "2.0"))
+
+
+@dataclass
+class Prompt:
+    prompt: str
+    file_path: str
+    prompt_id: Optional[str] = None
+
+
+def _client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise LLMExecutionError("[LLM] OPENAI_API_KEY is not set")
+    return OpenAI(api_key=api_key)
+
+
+def _mk_messages(user_content: str) -> List[dict]:
+    sys = os.getenv(
+        "OPENAI_SYSTEM_PROMPT",
+        "You are a helpful assistant that writes minimal, correct code patches.",
+    )
+    return [
+        {"role": "system", "content": sys},
+        {"role": "user", "content": user_content},
+    ]
+
+
+def _extract_text(resp: ChatCompletion) -> str:
+    try:
+        return resp.choices[0].message.content or ""
+    except Exception:
+        return ""
+
+
+_filename_sanitize_re = re.compile(r"[^a-zA-Z0-9_.-]+")
+
+
+def _safe_filename(s: str) -> str:
+    s = s.replace("/", "_").replace("\\", "_").replace(":", "_")
+    s = _filename_sanitize_re.sub("_", s)
+    return s.strip("_") or "unknown"
+
+
+def _get_prompt_meta(prompt_obj: Any) -> Tuple[str, str]:
+    file_path = getattr(prompt_obj, "file_path", None)
+    if file_path is None and isinstance(prompt_obj, dict):
+        file_path = prompt_obj.get("file_path")
+    file_path = file_path or "unknown"
+
+    pid = getattr(prompt_obj, "prompt_id", None)
+    if pid is None:
+        pid = getattr(prompt_obj, "id", None)
+    if pid is None:
+        pid = getattr(prompt_obj, "uid", None)
+    if pid is None and isinstance(prompt_obj, dict):
+        pid = prompt_obj.get("prompt_id") or prompt_obj.get("id") or prompt_obj.get("uid")
+    if pid is None:
+        pid = str(time.time_ns())
+
+    return str(file_path), str(pid)
+
+
+def save_md_response(text: str, prompt_obj: Any, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    try:
-        path = Path(prompt_obj.snippet.path if hasattr(prompt_obj, "snippet") else prompt_obj.path)
-    except Exception as e:
-        raise RuntimeError(f"[ERROR] Failed to resolve output path: {e}")
+    file_path, _ = _get_prompt_meta(prompt_obj)
+    # ex) routes/app.js -> app
+    base_stem = _safe_filename(Path(file_path).stem) or "response"
+    name = f"{base_stem}.md"
+    path = output_dir / name
 
-    parts = [p for p in path.parts if p not in ("artifacts", "downloaded_repo")]
-    flat_path = "_".join(parts)
-    output_path = output_dir / f"response_{flat_path}.md"
+    if path.exists():
+        i = 1
+        while True:
+            candidate = output_dir / f"{base_stem}_{i}.md"
+            if not candidate.exists():
+                path = candidate
+                break
+            i += 1
 
-    output_path.write_text(content, encoding="utf-8")
-    return output_path
+    with path.open("w", encoding="utf-8") as f:
+        f.write(text)
+    return path
 
 
-def run_llm_for_semgrep_results(
-    semgrep_json_path: str,
-    output_dir: Path,
-    tool: str = "semgrep",
-    model: str = "gpt-4o",
-) -> None:
-    """
-    Run LLM for all prompts from a SAST result.
-    """
-    if tool == "semgrep":
-        from autofic_core.sast.semgrep.preprocessor import SemgrepPreprocessor as Preprocessor
-    elif tool == "codeql":
-        from autofic_core.sast.codeql.preprocessor import CodeQLPreprocessor as Preprocessor
-    elif tool == "snykcode":
-        from autofic_core.sast.snykcode.preprocessor import SnykCodePreprocessor as Preprocessor
-    else:
-        raise ValueError(f"Unsupported SAST tool: {tool}")
+class LLMRunner:
+    def __init__(self, model: Optional[str] = None, temperature: Optional[float] = None):
+        self.model = model or DEFAULT_MODEL
+        self.temperature = DEFAULT_TEMPERATURE if temperature is None else temperature
+        self.client = _client()
 
-    raw_snippets = Preprocessor.preprocess(semgrep_json_path)
-    merged_snippets = merge_snippets_by_file(raw_snippets)
-    prompts = PromptGenerator().generate_prompts(merged_snippets)
-    runner = LLMRunner(model=model)
-
-    for prompt in prompts:
-        try:
-            result = runner.run(prompt.prompt)
-            save_md_response(result, prompt, output_dir)
-        except LLMExecutionError:
-            continue
+    def run(self, user_prompt: str) -> str:
+        last_err: Optional[Exception] = None
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                resp = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=_mk_messages(user_prompt),
+                    temperature=self.temperature,
+                )
+                text = _extract_text(resp)
+                if not text.strip():
+                    raise LLMExecutionError("[LLM] Empty response")
+                return text
+            except (RateLimitError, APIConnectionError) as e:
+                last_err = e
+                if attempt >= MAX_RETRIES:
+                    break
+                time.sleep(RETRY_BACKOFF * attempt)
+            except Exception as e:
+                last_err = e
+                break
+        raise LLMExecutionError(f"[LLM] call failed: {last_err}")

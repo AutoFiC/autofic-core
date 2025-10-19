@@ -82,7 +82,7 @@ class SemgrepHandler:
             task = progress.add_task(description, total=100)
 
             start = time.time()
-            runner = SemgrepRunner(repo_path=str(self.repo_path), rule="p/javascript")
+            runner = SemgrepRunner(repo_path=str(self.repo_path), rule="p/python")
             result = runner.run_semgrep()
             end = time.time()
 

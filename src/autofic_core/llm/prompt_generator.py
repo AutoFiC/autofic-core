@@ -67,13 +67,13 @@ class PromptGenerator:
         self.template = PromptTemplate(
             title="Refactoring Vulnerable Code Snippet (File Level)",
             content=(
-                "The following is a JavaScript source file that contains security vulnerabilities.\n\n"
-                "```javascript\n"
+                "The following is a Python source file that contains security vulnerabilities.\n\n"
+                "```python\n"
                 "{input}\n"
                 "```\n\n"
                 "Detected vulnerabilities:\n\n"
                 "{vulnerabilities}"
-                "Please strictly follow the guidelines below when modifying the cozde:\n"
+                "Please strictly follow the guidelines below when modifying the code:\n"
                 "- Modify **only the vulnerable parts** of the file with **minimal changes**.\n"
                 "- Preserve the **original line numbers, indentation, and code formatting** exactly.\n"
                 "- **Do not modify any part of the file that is unrelated to the vulnerabilities.**\n"
@@ -84,8 +84,8 @@ class PromptGenerator:
                 "2. Potential Risk: ...\n"
                 "3. Recommended Fix: ...\n"
                 "4. Final Modified Code:\n"
-                "```javascript\n"
-                "// Entire file content, but only vulnerable parts should be modified minimally\n"
+                "```python\n"
+                "# Entire file content, but only vulnerable parts should be modified minimally\n"
                 "...entire code...\n"
                 "```\n"
                 "5. Additional Notes: (optional)\n"

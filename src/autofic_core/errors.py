@@ -75,6 +75,38 @@ class PromptGenerationException(AutoficError):
         self.code = code
         super().__init__(f"[ ERROR ] Prompt generation failed ({code}): {message}")
 
+# annotation
+
+class AnnotationError(AutoficError):
+    """Base class for annotation errors"""
+    pass
+
+
+class XMLParseError(AnnotationError):
+    def __init__(self, xml_path: str, reason: str):
+        message = f"[ ERROR ] Failed to parse XML {xml_path}: {reason}"
+        super().__init__(message)
+        self.xml_path = xml_path
+        self.reason = reason
+
+
+class XSDValidationError(AnnotationError):
+    def __init__(self, xml_path: str, errors: str):
+        message = f"[ ERROR ] XSD validation failed for {xml_path}:\n{errors}"
+        super().__init__(message)
+
+
+class SidecarGenerationError(AnnotationError):
+    def __init__(self, file_path: str, reason: str):
+        message = f"[ ERROR ] Failed to generate sidecar for {file_path}: {reason}"
+        super().__init__(message)
+
+
+class SchemaValidationError(AnnotationError):
+    def __init__(self, json_path: str, reason: str):
+        message = f"[ ERROR ] JSON schema validation failed for {json_path}: {reason}"
+        super().__init__(message)
+
 # response_parser.py
 
 class ResponseParseError(AutoficError):

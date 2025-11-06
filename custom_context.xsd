@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- =============================================================================
+     AutoFiC Team-Atlanta Style CUSTOM_CONTEXT XSD (v1.1)
+     ============================================================================= -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            targetNamespace="urn:autofic:custom-context"
+            xmlns="urn:autofic:custom-context"
+            elementFormDefault="qualified"
+            attributeFormDefault="unqualified">
+
+  <xsd:element name="CUSTOM_CONTEXT">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="META" type="MetaType"/>
+        <xsd:element name="VULNERABILITY" type="VulnType" minOccurs="0" maxOccurs="unbounded"/>
+      </xsd:sequence>
+      <xsd:attribute name="version" type="xsd:string" use="required"/>
+      <xsd:attribute ref="xsi:schemaLocation" use="optional"
+                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <xsd:complexType name="MetaType">
+    <xsd:attribute name="generatedAt" type="xsd:string" use="required"/>
+    <xsd:attribute name="tool" type="xsd:string" use="required"/>
+    <xsd:attribute name="count" type="xsd:nonNegativeInteger" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="VulnType">
+    <xsd:sequence>
+      <xsd:element name="FILE" type="FileType"/>
+      <xsd:element name="RANGE" type="RangeType"/>
+      <xsd:element name="SEVERITY" type="SeverityType"/>
+      <xsd:element name="MESSAGE" type="MessageType"/>
+      <xsd:element name="SNIPPET" type="CDataString"/>
+
+      <xsd:element name="BIT" type="BitType"/>
+
+      <xsd:element name="CLASSES" type="ClassesType" minOccurs="0"/>
+      <xsd:element name="WEAKNESSES" type="WeaknessesType" minOccurs="0"/>
+      <xsd:element name="REFERENCES" type="ReferencesType" minOccurs="0"/>
+      <xsd:element name="SOURCE" type="SourceType" minOccurs="0"/>
+      <xsd:element name="EVIDENCE" type="EvidenceType" minOccurs="0"/>
+      <xsd:element name="PRECONDITIONS" type="StringListType" minOccurs="0"/>
+      <xsd:element name="ENV" type="EnvType" minOccurs="0"/>
+      <xsd:element name="MITIGATION" type="MitigationType" minOccurs="0"/>
+      <xsd:element name="TRACKING" type="TrackingType" minOccurs="0"/>
+      <xsd:element name="CONTEXT" type="ContextType" minOccurs="0"/>
+      <!-- Forward-compatible extension point: allow additional elements without breaking schema -->
+      <xsd:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/>
+    </xsd:sequence>
+    <xsd:attribute name="id" type="xsd:string" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="FileType">
+    <xsd:attribute name="path" type="xsd:string" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="RangeType">
+    <xsd:attribute name="start" type="xsd:positiveInteger" use="required"/>
+    <xsd:attribute name="end" type="xsd:positiveInteger" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="SeverityType">
+    <xsd:attribute name="overall" type="xsd:string" use="required"/>
+    <xsd:attribute name="bit" type="xsd:string" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="MessageType" mixed="true">
+    <xsd:sequence minOccurs="0">
+      <xsd:element name="MESSAGES" type="StringListType" minOccurs="0"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="BitType">
+    <xsd:sequence>
+      <xsd:element name="TRIGGER" type="CDataString"/>
+      <xsd:element name="STEPS" type="StepsType"/>
+      <xsd:element name="REPRODUCTION" type="CDataString"/>
+      <xsd:element name="BIT_SEVERITY" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="StepsType">
+    <xsd:sequence>
+      <xsd:element name="STEP" type="xsd:string" minOccurs="1" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="ClassesType">
+    <xsd:sequence>
+      <xsd:element name="CLASS" type="xsd:string" minOccurs="1" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="WeaknessesType">
+    <xsd:sequence>
+      <xsd:element name="CWE" type="CweType" minOccurs="1" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="CweType">
+    <xsd:attribute name="id" type="xsd:string" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="ReferencesType">
+    <xsd:sequence>
+      <xsd:element name="REF" type="RefType" minOccurs="1" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="RefType">
+    <xsd:attribute name="href" type="xsd:anyURI" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="SourceType">
+    <xsd:attribute name="tool" type="xsd:string" use="optional"/>
+    <xsd:attribute name="id" type="xsd:string" use="optional"/>
+    <xsd:attribute name="helpUri" type="xsd:anyURI" use="optional"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="EvidenceType">
+    <xsd:sequence>
+      <xsd:element name="SINK" type="PointType" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="SOURCE" type="PointType" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="FLOW" type="xsd:string" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="PointType">
+    <xsd:attribute name="line" type="xsd:positiveInteger" use="optional"/>
+    <xsd:attribute name="symbol" type="xsd:string" use="optional"/>
+    <xsd:attribute name="taint" type="xsd:string" use="optional"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="StringListType">
+    <xsd:sequence>
+      <xsd:element name="ITEM" type="xsd:string" minOccurs="1" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="EnvType">
+    <xsd:sequence>
+      <xsd:element name="RUNTIME" type="RuntimeType" minOccurs="0"/>
+      <xsd:element name="DEPENDENCY" type="DependencyType" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="RuntimeType">
+    <xsd:attribute name="node" type="xsd:string" use="optional"/>
+    <xsd:attribute name="os" type="xsd:string" use="optional"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="DependencyType">
+    <xsd:attribute name="name" type="xsd:string" use="required"/>
+    <xsd:attribute name="version" type="xsd:string" use="optional"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="MitigationType">
+    <xsd:sequence>
+      <xsd:element name="SUMMARY" type="xsd:string" minOccurs="1"/>
+      <xsd:element name="CODE_HINT" type="CDataString" minOccurs="0"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="TrackingType">
+    <xsd:sequence>
+      <xsd:element name="ISSUE" type="IssueType" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="COMMIT" type="CommitType" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="IssueType">
+    <xsd:attribute name="key" type="xsd:string" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="CommitType">
+    <xsd:attribute name="hash" type="xsd:string" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="ContextType">
+    <xsd:attribute name="before" type="xsd:nonNegativeInteger" use="required"/>
+    <xsd:attribute name="after" type="xsd:nonNegativeInteger" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="CDataString" mixed="true">
+    <xsd:simpleContent>
+      <xsd:extension base="xsd:string"/>
+    </xsd:simpleContent>
+  </xsd:complexType>
+
+</xsd:schema>

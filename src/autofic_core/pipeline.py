@@ -243,8 +243,12 @@ class SASTAnalyzer:
             if merged_path:
                 self._generate_custom_context_xml(merged_path)
 
-                with open(merged_path, "r", encoding="utf-8") as f:
-                    findings = [BaseSnippet(**item) for item in json.load(f)]
+                try:
+                    with open(merged_path, "r", encoding="utf-8") as f:
+                        findings = [BaseSnippet(**item) for item in json.load(f)]
+                except Exception as e:
+                    console.print(f"[WARN] Failed to load or parse SAST result: {e}", style="yellow")
+                    return merged_path
 
                 files_group = {}
                 for vuln in findings:
@@ -253,13 +257,18 @@ class SASTAnalyzer:
                 for file_path, vulns in files_group.items():
                     full_path = self.repo_path / file_path
                     if not full_path.exists():
+                        console.print(f"[WARN] Target file not found: {full_path}", style="yellow")
                         continue
-                    with open(full_path, "r", encoding="utf-8") as f:
-                        code_lines = f.readlines()
-                    annotated = inject_annotations(code_lines, vulns)
-                    with open(full_path, "w", encoding="utf-8") as f:
-                        f.writelines(line if line.endswith("\n") else line + "\n" for line in annotated)
-            
+                    try:
+                        with open(full_path, "r", encoding="utf-8") as f:
+                            code_lines = f.readlines()
+                        annotated = inject_annotations(code_lines, vulns)
+                        with open(full_path, "w", encoding="utf-8") as f:
+                            f.writelines(line if line.endswith("\n") else line + "\n" for line in annotated)
+                    except Exception as e:
+                        console.print(f"[WARN] Annotation injection failed for {full_path}: {e}", style="yellow")
+                        continue
+                    
             return merged_path
         except Exception as e:
             console.print(f"[ ERROR ] SAST tool [{self.tool}] failed: {e}", style="red")

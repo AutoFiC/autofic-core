@@ -25,6 +25,8 @@ from autofic_core.sast.merger import merge_snippets_by_file
 from autofic_core.sast.workflow import SASTXMLWorkflow
 from autofic_core.sast.xml_generator import RenderOptions
 
+from autofic_core.annotation.injector import inject_annotations
+
 from autofic_core.llm.prompt_generator import PromptGenerator
 from autofic_core.llm.llm_runner import LLMRunner, save_md_response
 from autofic_core.llm.retry_prompt_generator import RetryPromptGenerator
@@ -240,6 +242,23 @@ class SASTAnalyzer:
             # XML 생성 추가
             if merged_path:
                 self._generate_custom_context_xml(merged_path)
+
+                with open(merged_path, "r", encoding="utf-8") as f:
+                    findings = [BaseSnippet(**item) for item in json.load(f)]
+
+                files_group = {}
+                for vuln in findings:
+                    files_group.setdefault(vuln.path, []).append(vuln)
+
+                for file_path, vulns in files_group.items():
+                    full_path = self.repo_path / file_path
+                    if not full_path.exists():
+                        continue
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        code_lines = f.readlines()
+                    annotated = inject_annotations(code_lines, vulns)
+                    with open(full_path, "w", encoding="utf-8") as f:
+                        f.writelines(line if line.endswith("\n") else line + "\n" for line in annotated)
             
             return merged_path
         except Exception as e:

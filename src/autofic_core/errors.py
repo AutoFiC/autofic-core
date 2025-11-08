@@ -169,3 +169,6 @@ class PRWithoutPatchError(AutoficError):
         message = f"[ ERROR ]  The --pr option cannot be used without --patch!"
         super().__init__(message)
 
+#annotation.py
+class XMLExportError(Exception):
+    pass

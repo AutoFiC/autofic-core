@@ -110,10 +110,17 @@ class GitHubRepoHandler():
         clone_url = f"https://github.com/{self._current_user}/{self._name}.git"
 
         try:
-            subprocess.run(['git', 'clone', clone_url, repo_path], check=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            text=True)
+            # On Windows, default code page (e.g., cp949) can cause decode errors when reading
+            # git output that contains UTF-8 characters. Force UTF-8 and be tolerant.
+            subprocess.run(
+                ['git', 'clone', clone_url, repo_path],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+            )
         except subprocess.CalledProcessError as e:
             raise RepoAccessError(e)
         

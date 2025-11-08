@@ -22,6 +22,8 @@ from autofic_core.sast.codeql.preprocessor import CodeQLPreprocessor
 from autofic_core.sast.snykcode.runner import SnykCodeRunner
 from autofic_core.sast.snykcode.preprocessor import SnykCodePreprocessor
 from autofic_core.sast.merger import merge_snippets_by_file
+from autofic_core.sast.workflow import SASTXMLWorkflow
+from autofic_core.sast.xml_generator import RenderOptions
 
 from autofic_core.llm.prompt_generator import PromptGenerator
 from autofic_core.llm.llm_runner import LLMRunner, save_md_response
@@ -234,10 +236,57 @@ class SASTAnalyzer:
 
         try:
             merged_path = self.handler.run()
+            
+            # XML 생성 추가
+            if merged_path:
+                self._generate_custom_context_xml(merged_path)
+            
             return merged_path
         except Exception as e:
             console.print(f"[ ERROR ] SAST tool [{self.tool}] failed: {e}", style="red")
             raise
+    
+    def _generate_custom_context_xml(self, merged_snippets_path: Path):
+        """CUSTOM_CONTEXT.xml 생성"""
+        try:
+            console.print("\n[ INFO ] Generating CUSTOM_CONTEXT.xml...\n", style="bold cyan")
+            
+            # 출력 경로 설정
+            xml_output_path = self.save_dir / "CUSTOM_CONTEXT.xml"
+            
+            # 스키마 경로 찾기
+            project_root = Path(__file__).parent.parent.parent
+            schema_path = project_root / "custom_context.xsd"
+            
+            # XML 워크플로우 초기화
+            workflow = SASTXMLWorkflow(
+                schema_path=schema_path if schema_path.exists() else None,
+                auto_validate=True,
+            )
+            
+            # 렌더링 옵션
+            options = RenderOptions(
+                tool_name=f"AutoFiC-{self.tool.upper()}",
+                schema_location="custom_context.xsd",
+                include_env=True,
+                include_tracking=True,
+                include_mitigations=True,
+                context_lines_before=3,
+                context_lines_after=3,
+            )
+            
+            # XML 생성
+            xml_path = workflow.process_sast_results(
+                merged_snippets_path=merged_snippets_path,
+                output_xml_path=xml_output_path,
+                options=options,
+            )
+            
+            console.print(f"[ SUCCESS ] CUSTOM_CONTEXT.xml generated → {xml_path}", style="bold green")
+            
+        except Exception as e:
+            console.print(f"[ WARN ] Failed to generate XML (continuing pipeline): {e}", style="yellow")
+            # XML 생성 실패해도 파이프라인은 계속 진행
 
     def save_snippets(self, merged_snippets_path: Path):
         with open(merged_snippets_path, "r", encoding="utf-8") as f:
@@ -275,7 +324,15 @@ class LLMProcessor:
     def run(self):
         print_divider("LLM Response Generation Stage")
 
-        prompt_generator = PromptGenerator()
+        # Team-Atlanta: Check if CUSTOM_CONTEXT.xml exists
+        custom_context_xml_path = self.save_dir / "CUSTOM_CONTEXT.xml"
+        if custom_context_xml_path.exists():
+            console.print(f"[INFO] Using CUSTOM_CONTEXT.xml for enhanced prompts\n", style="bold cyan")
+            prompt_generator = PromptGenerator(custom_context_xml_path=custom_context_xml_path)
+        else:
+            console.print(f"[INFO] CUSTOM_CONTEXT.xml not found, using standard prompts\n", style="yellow")
+            prompt_generator = PromptGenerator()
+        
         merged_path = self.save_dir / "sast" / "merged_snippets.json"
 
         with open(merged_path, "r", encoding="utf-8") as f:

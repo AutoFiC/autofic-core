@@ -81,9 +81,13 @@ def run_llm_for_semgrep_results(
     output_dir: Path,
     tool: str = "semgrep",
     model: str = "gpt-4o",
+    custom_context_xml_path: Path = None,
 ) -> None:
     """
     Run LLM for all prompts from a SAST result.
+    
+    Args:
+        custom_context_xml_path: Optional path to CUSTOM_CONTEXT.xml (Team-Atlanta approach)
     """
     if tool == "semgrep":
         from autofic_core.sast.semgrep.preprocessor import SemgrepPreprocessor as Preprocessor
@@ -96,7 +100,9 @@ def run_llm_for_semgrep_results(
 
     raw_snippets = Preprocessor.preprocess(semgrep_json_path)
     merged_snippets = merge_snippets_by_file(raw_snippets)
-    prompts = PromptGenerator().generate_prompts(merged_snippets)
+    
+    # Team-Atlanta: Pass CUSTOM_CONTEXT.xml to PromptGenerator
+    prompts = PromptGenerator(custom_context_xml_path=custom_context_xml_path).generate_prompts(merged_snippets)
     runner = LLMRunner(model=model)
 
     for prompt in prompts:

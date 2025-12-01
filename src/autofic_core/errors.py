@@ -55,7 +55,7 @@ class SemgrepExecutionError(AutoficError):
 
 class SnykCodeErrorMessages:
     TOKEN_MISSING = "[ ERROR ] SNYK_TOKEN environment variable not set."
-    NO_JS_FILES_FOUND = "[ ERROR ] No JavaScript/TypeScript files found to analyze."
+    NO_PY_FILES_FOUND = "[ ERROR ] No Python files found to analyze."
     CLI_NOT_FOUND = "[ ERROR ] Unable to locate Snyk CLI. Please install or set SNYK_CMD_PATH."
 
 # prompt_generator.py

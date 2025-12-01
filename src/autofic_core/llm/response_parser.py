@@ -20,7 +20,7 @@ from typing import List
 from pydantic import BaseModel
 from autofic_core.errors import ResponseParseError
 
-CODE_BLOCK_PATTERN = re.compile(r"```(?:js|javascript)\n([\s\S]+?)```", re.IGNORECASE | re.MULTILINE)
+CODE_BLOCK_PATTERN = re.compile(r"```(?:py|python)\n([\s\S]+?)```", re.IGNORECASE | re.MULTILINE)
 
 
 class ParsedResponse(BaseModel):
@@ -32,13 +32,13 @@ class ParsedResponse(BaseModel):
 
 def extract_code_blocks(content: str, filename: str) -> str:
     """
-    Extract JavaScript code blocks from markdown content.
+    Extract Python code blocks from markdown content.
     Raises:
         ResponseParseError: if code block not found
     """
     matches = CODE_BLOCK_PATTERN.findall(content)
     if not matches:
-        raise ResponseParseError(filename, "js/javascript 코드 블럭을 찾을 수 없습니다.")
+        raise ResponseParseError(filename, "Python 코드 블럭을 찾을 수 없습니다.")
     return "\n\n".join(m.strip() for m in matches)
 
 

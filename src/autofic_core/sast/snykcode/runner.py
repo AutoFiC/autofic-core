@@ -76,7 +76,7 @@ class SnykCodeRunner:
         # Simulate `snyk auth`
         self._ensure_authenticated(snyk_cmd, env)
 
-        valid_exts = {".js", ".jsx", ".ts", ".mjs"}
+        valid_exts = {".py", ".pyi"}
         target_files = [
             p for p in self.repo_path.rglob("*")
             if p.suffix in valid_exts and p.is_file()
@@ -85,7 +85,7 @@ class SnykCodeRunner:
         if not target_files:
             return SnykCodeResult(
                 stdout="",
-                stderr=SnykCodeErrorMessages.NO_JS_FILES_FOUND,
+                stderr=SnykCodeErrorMessages.NO_PY_FILES_FOUND,
                 returncode=1
             )
         

@@ -31,9 +31,8 @@ class SemgrepRunner(BaseModel):
             "semgrep",
             "--config", self.rule,
             "--json",
-            "--include", "*.js", 
-            "--include", "*.jsx", 
-            "--include", "*.mjs",
+            "--include", "*.pyi", 
+            "--include", "*.py", 
             self.repo_path
         ]
     

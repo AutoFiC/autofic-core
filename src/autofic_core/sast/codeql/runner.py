@@ -34,15 +34,15 @@ class CodeQLRunner:
 
     Attributes:
         repo_path (Path): Path to the cloned repository.
-        language (str): Programming language to analyze (default: "javascript").
-        query_pack (str): Query pack path (e.g., "codeql/javascript-queries").
+        language (str): Programming language to analyze (default: "python").
+        query_pack (str): Query pack path (e.g., "codeql/python-queries").
         db_path (Path): Path to the CodeQL database.
         result_dir (Path): Directory for storing analysis results.
         output_path (Path): Path to the generated SARIF report.
         log_path (Path): Path to the log file for subprocess outputs.
     """
 
-    def __init__(self, repo_path: Path, language: str = "javascript"):
+    def __init__(self, repo_path: Path, language: str = "python"):
         self.repo_path = Path(repo_path).resolve()
         self.language = language.lower()
         self.query_pack = f"codeql/{self.language}-queries"

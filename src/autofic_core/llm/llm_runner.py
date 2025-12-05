@@ -69,7 +69,7 @@ def save_md_response(content: str, prompt_obj: Any, output_dir: Path) -> str:
         raise RuntimeError(f"[ERROR] Failed to resolve output path: {e}")
 
     parts = [p for p in path.parts if p not in ("artifacts", "downloaded_repo")]
-    flat_path = "_".join(parts)
+    flat_path = "‣".join(parts)
     output_path = output_dir / f"response_{flat_path}.md"
 
     output_path.write_text(content, encoding="utf-8")

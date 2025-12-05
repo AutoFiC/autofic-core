@@ -51,7 +51,7 @@ def parse_md_filename(md_filename: str) -> str:
     stem = Path(md_filename).stem
     if not stem.startswith("response_"):
         raise ResponseParseError(md_filename, "잘못된 파일명 형식")
-    return stem[len("response_"):].replace("_", "/")
+    return stem[len("response_"):].replace("‣", "/")
 
 
 def parse_response(md_path: Path, output_dir: Path) -> ParsedResponse:

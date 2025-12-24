@@ -50,6 +50,17 @@ class LLMRunner:
                 ],
                 temperature=0.3
             )
+
+            #여기서 토큰 사용량 로깅
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                print(
+                    f"[TOKENS] prompt={usage.prompt_tokens}, "
+                    f"completion={usage.completion_tokens}, "
+                    f"total={usage.total_tokens}",
+                )
+                print()
+
             return response.choices[0].message.content.strip()
         except Exception as e:
             raise LLMExecutionError(str(e))
